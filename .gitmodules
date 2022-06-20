@@ -1,0 +1,3 @@
+[submodule "mm_demo/Assets/MotionMatching"]
+	path = mm_demo/Assets/MotionMatching
+	url = git@github.com:CarouselDancing/motion-matching.git
