@@ -4,7 +4,7 @@ The C# code is a port of the runtime implementation by Daniel Holden:  https://g
 
 The Python preprocessing code is a copy with small modifications.
 
-
+The scene Assets/MotionMatching/Demo/Scenes/main.unity contains a test of a locomotion controller.
 
 # License
 
