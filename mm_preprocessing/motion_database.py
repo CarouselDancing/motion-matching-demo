@@ -1,4 +1,3 @@
-from importlib_metadata import re
 import numpy as np
 import struct
 
@@ -24,17 +23,18 @@ class MotionDatabase:
         print(len(self.bone_map))
         #sys.exit()
 
-    def append(self,positions, velocities, rotations, angular_velocities, contacts, audio_data):
-            self.bone_positions.append(positions)
-            self.bone_velocities.append(velocities)
-            self.bone_rotations.append(rotations)
-            self.bone_angular_velocities.append(angular_velocities)
-            
-            offset = 0 if len(self.range_starts) == 0 else self.range_stops[-1] 
+    def append(self,positions, velocities, rotations, angular_velocities, contacts, audio_data=None):
+        self.bone_positions.append(positions)
+        self.bone_velocities.append(velocities)
+        self.bone_rotations.append(rotations)
+        self.bone_angular_velocities.append(angular_velocities)
+        
+        offset = 0 if len(self.range_starts) == 0 else self.range_stops[-1] 
 
-            self.range_starts.append(offset)
-            self.range_stops.append(offset + len(positions))
-            self.contact_states.append(contacts)
+        self.range_starts.append(offset)
+        self.range_stops.append(offset + len(positions))
+        self.contact_states.append(contacts)
+        if audio_data is not None:
             self.audio_data.append(audio_data)
 
     def write(self, filename):
