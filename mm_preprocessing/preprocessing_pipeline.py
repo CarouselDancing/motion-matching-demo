@@ -195,7 +195,7 @@ class PreprocessingPipeline:
             filename = str(filename)
             if not self.is_valid_file(filename):
                 continue
-            for mirror in [False, True]:
+            for mirror in [False]:
                 print('Loading "%s" %s...' % (filename, "(Mirrored)" if mirror else ""))
                 positions, velocities, rotations, angular_velocities, bone_names, bone_parents, contacts = self.process_motion_file(filename, mirror)
                 db.append(positions, velocities, rotations, angular_velocities, contacts)
@@ -230,10 +230,8 @@ class PreprocessingPipeline:
 
 
 
-def get_settings():
+def get_aist_settings():
     settings = dict()
-    scale = 0.01 # Convert from cm to m 
-    toes = ["LeftToeBase", "RightToeBase"]
     joint_names = ["root", "lhip", "lknee", "lankle", "ltoes",
                    "rhip", "rknee", "rankle", "rtoes", 
                    "spine", "belly", "chest", "neck", "head",

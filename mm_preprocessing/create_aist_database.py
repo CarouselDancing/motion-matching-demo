@@ -1,7 +1,7 @@
 import os
 import argparse
 from motion_database import MotionDatabase
-from preprocessing_pipeline import PreprocessingPipeline, get_settings, load_ignore_list
+from preprocessing_pipeline import PreprocessingPipeline, get_aist_settings, load_ignore_list
 
 
 
@@ -10,7 +10,7 @@ def main(**kwargs):
     motion_path= kwargs["motion_path"]
     n_max_files = kwargs["n_max_files"]
     kwargs["ignore_list"] = load_ignore_list(kwargs["ignore_list_filename"])
-    kwargs.update(get_settings())
+    kwargs.update(get_aist_settings())
     #print(kwargs["bone_map"], len(kwargs["bone_map"]))
     pipeline = PreprocessingPipeline(**kwargs)
     if not kwargs["evaluate"]:

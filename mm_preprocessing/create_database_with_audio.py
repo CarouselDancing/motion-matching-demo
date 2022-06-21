@@ -1,7 +1,7 @@
 import os
 import argparse
 from motion_database import MotionDatabase
-from preprocessing_pipeline import PreprocessingPipeline, get_settings, load_ignore_list
+from preprocessing_pipeline import PreprocessingPipeline, get_aist_settings, load_ignore_list
 
 
 def main(**kwargs):
@@ -9,8 +9,7 @@ def main(**kwargs):
     motion_path= kwargs["motion_path"]
     audio_path= kwargs["audio_path"]
     kwargs["ignore_list"] = load_ignore_list(kwargs["ignore_list_filename"])
-    kwargs.update(get_settings())
-    #print(kwargs["bone_map"], len(kwargs["bone_map"]))
+    kwargs.update(get_aist_settings())
     pipeline = PreprocessingPipeline(**kwargs)
     if not kwargs["evaluate"]:
         db = pipeline.create_db_with_audio(motion_path, audio_path, 4)
@@ -25,10 +24,10 @@ def main(**kwargs):
 
 if __name__ == "__main__":
     DATA_DIR = r"D:\Research\Carousel\workspace\rinu\variational-dance-motion-models\data"
-    motion_path = DATA_DIR +os.sep +  "AIST_motion" #"idle_motion" #
+    motion_path = DATA_DIR +os.sep +  "AIST_motion"
     audio_path = DATA_DIR +os.sep + "AIST_music"
     ignore_list_filename = DATA_DIR +os.sep + r"ignore_list.txt"
-    out_filename = "data" +os.sep + "database_dance3.bin"
+    out_filename = "out" +os.sep + "database_dance3.bin"
     parser = argparse.ArgumentParser(description="Create motion matching database")
     parser.add_argument("--motion_path", type=str,  default=motion_path)
     parser.add_argument("--audio_path", type=str, default=audio_path)
