@@ -24,8 +24,6 @@ def main(**kwargs):
     
 
 if __name__ == "__main__":
-    motion_path = r"D:\Research\Carousel\data\m11"
-    motion_path = r"D:\Research\Carousel\data\aistplusplus\bvh"
     DATA_DIR = r"D:\Research\Carousel\workspace\rinu\variational-dance-motion-models\data"
     motion_path = DATA_DIR +os.sep +  "AIST_motion" #"idle_motion" #
     audio_path = DATA_DIR +os.sep + "AIST_music"

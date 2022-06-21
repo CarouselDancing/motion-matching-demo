@@ -188,8 +188,9 @@ class PreprocessingPipeline:
         return filename.endswith("bvh") and not contains_element_in_list(filename, self.ignore_list)
 
 
-    def create_db(self, motion_path):
+    def create_db(self, motion_path, n_max_files=-1):
         db = MotionDatabase()
+        n_files = 0
         for filename in Path(motion_path).iterdir():
             filename = str(filename)
             if not self.is_valid_file(filename):
@@ -198,11 +199,13 @@ class PreprocessingPipeline:
                 print('Loading "%s" %s...' % (filename, "(Mirrored)" if mirror else ""))
                 positions, velocities, rotations, angular_velocities, bone_names, bone_parents, contacts = self.process_motion_file(filename, mirror)
                 db.append(positions, velocities, rotations, angular_velocities, contacts)
-
+            n_files+=1
+            if n_files >= n_max_files and n_max_files > 0:
+                break
         db.set_skeleton(bone_names, bone_parents, self.bone_map)
         return db
 
-    def create_db_with_audio(self, motion_path, audio_path, n_max_files=1):
+    def create_db_with_audio(self, motion_path, audio_path, n_max_files=-1):
         db = MotionDatabase()
         n_files = 0
         for filename in Path(motion_path).iterdir():
@@ -220,7 +223,7 @@ class PreprocessingPipeline:
                 audio_data = None
                 db.append(positions, velocities, rotations, angular_velocities, contacts, audio_data)
             n_files+=1
-            if n_files >= n_max_files:
+            if n_files >= n_max_files and n_max_files > 0:
                 break
         db.set_skeleton(bone_names, bone_parents, self.bone_map)
         return db
@@ -248,9 +251,9 @@ def get_settings():
     settings["joint_names"] = joint_names
     settings["bone_map"] = bone_map
     settings["sim_position_joint_name"] = "chest"
-    settings["sim_rotation_joint_name"]  = "root"
+    settings["sim_rotation_joint_name"] = "root"
     settings["left_prefix"] = "l"
-    settings["right_prefix"]  = "r"
+    settings["right_prefix"] = "r"
     return settings
 
 def load_ignore_list(filename):
