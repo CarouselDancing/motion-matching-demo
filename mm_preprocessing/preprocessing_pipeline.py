@@ -230,29 +230,7 @@ class PreprocessingPipeline:
 
 
 
-def get_aist_settings():
-    settings = dict()
-    joint_names = ["root", "lhip", "lknee", "lankle", "ltoes",
-                   "rhip", "rknee", "rankle", "rtoes", 
-                   "spine", "belly", "chest", "neck", "head",
-                   "linshoulder","lshoulder","lelbow", "lwrist", "lhand",
-                    "rinshoulder", "rshoulder", "relbow", "rwrist", "rhand"]
-    bone_map = [UHumanBodyBones.LastBone,UHumanBodyBones.Hips,
-    UHumanBodyBones.LeftUpperLeg, UHumanBodyBones.LeftLowerLeg, UHumanBodyBones.LeftFoot,  UHumanBodyBones.LeftToes,
-    UHumanBodyBones.RightUpperLeg, UHumanBodyBones.RightLowerLeg, UHumanBodyBones.RightFoot,  UHumanBodyBones.RightToes,
-    UHumanBodyBones.Spine, UHumanBodyBones.Chest, UHumanBodyBones.UpperChest, UHumanBodyBones.Neck, UHumanBodyBones.Head,
-    UHumanBodyBones.LeftShoulder,UHumanBodyBones.LeftUpperArm, UHumanBodyBones.LeftLowerArm,UHumanBodyBones.LeftHand, UHumanBodyBones.LeftIndexDistal,
-    UHumanBodyBones.RightShoulder,UHumanBodyBones.RightUpperArm, UHumanBodyBones.RightLowerArm,UHumanBodyBones.RightHand, UHumanBodyBones.RightIndexDistal
-    ]
-    settings["scale"] = 0.1
-    settings["toes"] = ["rtoes", "ltoes"]
-    settings["joint_names"] = joint_names
-    settings["bone_map"] = bone_map
-    settings["sim_position_joint_name"] = "chest"
-    settings["sim_rotation_joint_name"] = "root"
-    settings["left_prefix"] = "l"
-    settings["right_prefix"] = "r"
-    return settings
+
 
 def load_ignore_list(filename):
     ignore_list = []
