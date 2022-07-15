@@ -42,8 +42,11 @@ class PreprocessingPipeline:
         self.n_mels = kwargs.get("n_mels", 17)
         self.ignore_list = kwargs.get("ignore_list", [])
         self.bone_map = kwargs.get("bone_map", [])
+        self.offset_rot = None#np.pi/2
+        self.fps = 60
+        self.ref_dir = np.array([0, 0, 1])
 
-    def process_motion(self, positions, rotations, names, parents, mirror):
+    def process_motion(self, positions, rotations, names, parents):
         """ Supersample """
         
         nframes = positions.shape[0]
@@ -61,7 +64,6 @@ class PreprocessingPipeline:
         rotations = quat.normalize(rotations)
         
         """ Extract Simulation Bone """
-        ref_dir = np.array([0, 0, 1])
         # First compute world space positions/rotations
         global_rotations, global_positions = quat.fk(rotations, positions, parents)
         
@@ -77,18 +79,21 @@ class PreprocessingPipeline:
         
         #sim_direction = np.array([1.0, 0.0, 1.0]) * quat.mul_vec(global_rotations[:,sim_rotation_joint:sim_rotation_joint+1], np.array([0.0, 1.0, 0.0]))
         _, twist_qs = swing_twist_decomposition(global_rotations[:,sim_rotation_joint:sim_rotation_joint+1],np.array([0.0, 1.0, 0.0]))
-        
-        sim_direction = quat.mul_vec(twist_qs, ref_dir)
+        sim_direction = quat.mul_vec(twist_qs, self.ref_dir)
   
         # We need to re-normalize the direction after both projection and smoothing
         sim_direction = sim_direction / np.sqrt(np.sum(np.square(sim_direction), axis=-1))[...,np.newaxis]
         sim_direction = signal.savgol_filter(sim_direction, 61, 3, axis=0, mode='interp')
         sim_direction = sim_direction / np.sqrt(np.sum(np.square(sim_direction), axis=-1)[...,np.newaxis])
             
-        # initial frame to reference 
-        initial_offset_rotation = quat.normalize(quat.between(sim_direction[0:1], ref_dir))
+        # align to reference rotation
+        # this caused issues when checking the original poses
+        initial_offset_rotation = quat.normalize(quat.between(sim_direction[0:1], self.ref_dir))
         #print(sim_direction[0:1].shape, initial_offset_rotation.shape)
         rotations[:,0:1] = quat.mul(initial_offset_rotation[0:1], rotations[:,0:1])
+        #align positions as well
+        positions[:,0:1] = quat.mul_vec(initial_offset_rotation[0:1], positions[:,0:1])
+        sim_position = quat.mul_vec(initial_offset_rotation[0:1],sim_position)
         #for i in range(len(rotations)):
         #    q = quat.mul(initial_offset_rotation[0:1], rotations[i,0:1])
         #    #print(initial_offset_rotation.shape, rotations[i,0:1].shape, q)
@@ -97,7 +102,7 @@ class PreprocessingPipeline:
         sim_direction = quat.mul_vec(initial_offset_rotation, sim_direction)
         print("after", sim_direction[0])
         # Extract rotation from direction
-        sim_rotation = quat.normalize(quat.between(ref_dir, sim_direction))
+        sim_rotation = quat.normalize(quat.between(self.ref_dir, sim_direction))
         print("sim_rotation", quat.to_euler(sim_rotation[0]))
 
         # Transform first joints to be local to sim and append sim as root bone
@@ -105,8 +110,6 @@ class PreprocessingPipeline:
         print("before", sim_rotation_joint, sim_direction[0], quat.to_euler(sim_rotation[0]), quat.to_euler(rotations[0,0]))
         positions[:,0:1] = quat.mul_vec(quat.inv(sim_rotation), positions[:,0:1] - sim_position)
         rotations[:,0:1] = quat.mul(quat.inv(sim_rotation), rotations[:,0:1])
-        if mirror:
-            rotations[:,0:1] =quat.mul(quat.from_angle_axis(np.pi, [0,1,0]), rotations[:,0:1])
 
         print("after", quat.to_euler(rotations[0,0]))
         
@@ -122,22 +125,22 @@ class PreprocessingPipeline:
         # Compute velocities via central difference
         velocities = np.empty_like(positions)
         velocities[1:-1] = (
-            0.5 * (positions[2:  ] - positions[1:-1]) * 60.0 +
-            0.5 * (positions[1:-1] - positions[ :-2]) * 60.0)
+            0.5 * (positions[2:  ] - positions[1:-1]) * self.fps +
+            0.5 * (positions[1:-1] - positions[ :-2]) * self.fps)
         velocities[ 0] = velocities[ 1] - (velocities[ 3] - velocities[ 2])
         velocities[-1] = velocities[-2] + (velocities[-2] - velocities[-3])
         
         # Same for angular velocities
         angular_velocities = np.zeros_like(positions)
         angular_velocities[1:-1] = (
-            0.5 * quat.to_scaled_angle_axis(quat.abs(quat.mul_inv(rotations[2:  ], rotations[1:-1]))) * 60.0 +
-            0.5 * quat.to_scaled_angle_axis(quat.abs(quat.mul_inv(rotations[1:-1], rotations[ :-2]))) * 60.0)
+            0.5 * quat.to_scaled_angle_axis(quat.abs(quat.mul_inv(rotations[2:  ], rotations[1:-1]))) * self.fps +
+            0.5 * quat.to_scaled_angle_axis(quat.abs(quat.mul_inv(rotations[1:-1], rotations[ :-2]))) * self.fps)
         angular_velocities[ 0] = angular_velocities[ 1] - (angular_velocities[ 3] - angular_velocities[ 2])
         angular_velocities[-1] = angular_velocities[-2] + (angular_velocities[-2] - angular_velocities[-3])
 
         """ Compute Contact Data """ 
 
-        global_rotations, global_positions, global_velocities, global_angular_velocities = quat.fk_vel(
+        _, _, global_velocities, _ = quat.fk_vel(
             rotations, 
             positions, 
             velocities,
@@ -179,7 +182,8 @@ class PreprocessingPipeline:
         if mirror:
             rotations, positions = animation_mirror(rotations, positions, bone_names, bone_parents, self.left_prefix, self.right_prefix)
             rotations = quat.unroll(rotations)
-        positions, velocities, rotations, angular_velocities, bone_names, bone_parents, contacts = self.process_motion(positions, rotations, bone_names, bone_parents, mirror)
+            self.offset_rot = np.pi
+        positions, velocities, rotations, angular_velocities, bone_names, bone_parents, contacts = self.process_motion(positions, rotations, bone_names, bone_parents)
         return positions, velocities, rotations, angular_velocities, bone_names, bone_parents, contacts
 
 
