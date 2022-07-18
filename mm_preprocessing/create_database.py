@@ -1,20 +1,29 @@
 import os
 import argparse
 from motion_database import MotionDatabase
-from preprocessing_pipeline import PreprocessingPipeline, get_aist_settings, load_ignore_list
-from .settings import SETTINGS
+from preprocessing_pipeline import PreprocessingPipeline, load_ignore_list
+from settings import SETTINGS
+
+
+def load_ignore_list(filename):
+    ignore_list = []
+    with open(filename, "rt") as in_file:
+        ignore_list.append(in_file.readline())
+    return ignore_list
 
 
 def main(**kwargs):
     out_filename= kwargs["out_filename"]
     motion_path= kwargs["motion_path"]
-    audio_path= kwargs["audio_path"]
+    n_max_files = kwargs["n_max_files"]
     skeleton_type = kwargs["skeleton_type"]
-    kwargs["ignore_list"] = load_ignore_list(kwargs["ignore_list_filename"])
+    kwargs["ignore_list"] = list()
+    if kwargs["ignore_list_filename"] is not None:
+        kwargs["ignore_list"] = load_ignore_list(kwargs["ignore_list_filename"])
     kwargs.update(SETTINGS[skeleton_type])
     pipeline = PreprocessingPipeline(**kwargs)
     if not kwargs["evaluate"]:
-        db = pipeline.create_db_with_audio(motion_path, audio_path, 4)
+        db = pipeline.create_db(motion_path, n_max_files)
         db.write(out_filename)
         #db.print_shape()
 
@@ -25,20 +34,17 @@ def main(**kwargs):
     
 
 if __name__ == "__main__":
-    DATA_DIR = r"D:\Research\Carousel\workspace\rinu\variational-dance-motion-models\data"
-    motion_path = DATA_DIR +os.sep +  "AIST_motion"
-    audio_path = DATA_DIR +os.sep + "AIST_music"
-    ignore_list_filename = DATA_DIR +os.sep + r"ignore_list.txt"
+    DATA_DIR = r"D:\Research\Carousel\data"
+    motion_path = DATA_DIR + os.sep + r"m11\retarget\raw\combined"
     out_path = "D:\Research\Carousel\workspace\motion_matching_demo\mm_demo\Assets\Resources"
-    out_filename = out_path +os.sep + "database_merengue.bin"
+    out_filename = out_path + os.sep + "database_merengue_raw3.bin.txt"
     parser = argparse.ArgumentParser(description="Create motion matching database")
     parser.add_argument("--motion_path", type=str,  default=motion_path)
-    parser.add_argument("--audio_path", type=str, default=audio_path)
-    parser.add_argument("--ignore_list_filename", type=str, default=ignore_list_filename)
-    parser.add_argument("--n_mels", type=int, default=27)#96
-    parser.add_argument("--sampling_rate",  type=float, default=16000)
+    parser.add_argument("--ignore_list_filename", type=str, default=None)
     parser.add_argument("--out_filename", type=str, default=out_filename)
     parser.add_argument('--evaluate', "-e", default=False, dest='evaluate', action='store_true')
+    parser.add_argument('--n_max_files', type=int, default=20)
+    parser.add_argument('--skeleton_type', type=str, default="raw")
     args = parser.parse_args()
     main(**vars(args))
     
