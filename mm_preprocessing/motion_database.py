@@ -1,6 +1,8 @@
 import numpy as np
 import struct
 
+
+
 class MotionDatabase:
     bone_positions = []
     bone_velocities = []
@@ -10,20 +12,26 @@ class MotionDatabase:
     range_starts = []
     range_stops = []
     contact_states = []
-    audio_data = []
+    phase_data = []
     bone_names = []
     bone_map = []
+    annotation_matrix = None
+
+    def append_clip_annotation(self, clip_annotation_matrix):
+        print(clip_annotation_matrix)
+        if self.annotation_matrix is None:
+            self.annotation_matrix = clip_annotation_matrix.astype(np.int32)
+        else:
+            self.annotation_matrix = np.concatenate([self.annotation_matrix, clip_annotation_matrix], axis=0).astype(np.int32)
 
     def set_skeleton(self, bone_names, bone_parents, bone_map):
         self.bone_names = bone_names
         self.bone_parents = bone_parents
-        import sys
         print(len(bone_map))
         self.bone_map = np.array(list(map(int,bone_map)), dtype=np.int32)
         print(len(self.bone_map))
-        #sys.exit()
 
-    def append(self,positions, velocities, rotations, angular_velocities, contacts, audio_data=None):
+    def append(self,positions, velocities, rotations, angular_velocities, contacts, phase_data=None):
         self.bone_positions.append(positions)
         self.bone_velocities.append(velocities)
         self.bone_rotations.append(rotations)
@@ -34,8 +42,8 @@ class MotionDatabase:
         self.range_starts.append(offset)
         self.range_stops.append(offset + len(positions))
         self.contact_states.append(contacts)
-        if audio_data is not None:
-            self.audio_data.append(audio_data)
+        if phase_data is not None:
+            self.phase_data.append(phase_data)
 
     def write(self, filename):
                 
@@ -51,7 +59,6 @@ class MotionDatabase:
         self.range_stops = np.array(self.range_stops).astype(np.int32)
 
         self.contact_states = np.concatenate(self.contact_states, axis=0).astype(np.uint8)
-        # self.audio_data = np.concatenate(self.audio_data, axis=0).astype(np.float32)
 
         """ Write Database """
         print("Writing Database...")
@@ -62,8 +69,8 @@ class MotionDatabase:
             nbones = self.bone_positions.shape[1]
             nranges = self.range_starts.shape[0]
             ncontacts = self.contact_states.shape[1]
-            #n_audio_dims = self.audio_data.shape[1]
-            
+            print( self.bone_positions[:,0])
+
             f.write(struct.pack('II', nframes, nbones) + self.bone_positions.ravel().tobytes())
             f.write(struct.pack('II', nframes, nbones) + self.bone_velocities.ravel().tobytes())
             f.write(struct.pack('II', nframes, nbones) + self.bone_rotations.ravel().tobytes())
@@ -82,11 +89,24 @@ class MotionDatabase:
             f.write(struct.pack('I', len_names_str)+str.encode(name_str, 'utf-8'))
             f.write(struct.pack('I', nbones) + self.bone_map.ravel().tobytes())
             print("save bone map",len(self.bone_map), self.bone_map.dtype)
-            #f.write(struct.pack('II', nframes, n_audio_dims) + self.audio_data.ravel().tobytes())
+            if len(self.phase_data) > 0:
+                #print(self.phase_data)
+                self.phase_data = np.concatenate(self.phase_data, axis=0).astype(np.float32)
+                n_phase_dims = 1
+                if len(self.phase_data.shape) >1:
+                    n_phase_dims = self.phase_data.shape[1]
+                f.write(struct.pack('II', nframes, n_phase_dims) + self.phase_data.ravel().tobytes())
+                #print(self.phase_data[:30])
+            
+            if self.annotation_matrix is not None:
+                n_annotations = self.annotation_matrix.shape[1]
+                print("save", self.annotation_matrix.shape)
+                f.write(struct.pack('II', nframes, n_annotations) + self.annotation_matrix.ravel().tobytes())
+
+
             
             
-            
-    def load(self, filename):
+    def load(self, filename, load_phase=False, load_annotation=False):
         with open(filename, 'rb') as f:
             
 
@@ -124,6 +144,14 @@ class MotionDatabase:
             nbones = struct.unpack('I', f.read(4))[0]
             self.bone_map = np.frombuffer(f.read(nbones*4), dtype=np.int32, count=nbones).reshape([nbones])
             print("loaded bone map",len(self.bone_map), self.bone_map)
+
+            if load_phase:
+                nframes, n_phase_dims = struct.unpack('II', f.read(8))
+                self.phase_data = np.frombuffer(f.read(nframes*n_phase_dims*4), dtype=np.float32, count=nframes*n_phase_dims).reshape([nframes, n_phase_dims])
+                
+                #print(self.phase_data[:30])
+       
+            
 
         print("loaded", nframes, self.bone_names, len(self.bone_names))
             
