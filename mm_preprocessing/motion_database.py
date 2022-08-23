@@ -15,9 +15,13 @@ class MotionDatabase:
     phase_data = []
     bone_names = []
     bone_map = []
+    annotation_keys = []
+    annotation_values = []
     annotation_matrix = None
 
-    def append_clip_annotation(self, clip_annotation_matrix):
+    def append_clip_annotation(self, keys, values, clip_annotation_matrix):
+        self.annotation_keys = keys
+        self.annotation_values = values
         print(clip_annotation_matrix)
         if self.annotation_matrix is None:
             self.annotation_matrix = clip_annotation_matrix.astype(np.int32)
@@ -81,13 +85,10 @@ class MotionDatabase:
             f.write(struct.pack('I', nranges) + self.range_stops.ravel().tobytes())
             
             f.write(struct.pack('II', nframes, ncontacts) + self.contact_states.ravel().tobytes())
-            name_str = ""
-            for name in self.bone_names: 
-                name_str += name +","
-            name_str = name_str[:-1]
-            len_names_str = len(name_str)
-            f.write(struct.pack('I', len_names_str)+str.encode(name_str, 'utf-8'))
+
+            self.save_string_list(self.bone_names, f)
             f.write(struct.pack('I', nbones) + self.bone_map.ravel().tobytes())
+            
             print("save bone map",len(self.bone_map), self.bone_map.dtype)
             if len(self.phase_data) > 0:
                 #print(self.phase_data)
@@ -99,12 +100,21 @@ class MotionDatabase:
                 #print(self.phase_data[:30])
             
             if self.annotation_matrix is not None:
+                self.save_string_list(self.annotation_keys, f)
+                self.save_string_list(self.annotation_values, f)
+
                 n_annotations = self.annotation_matrix.shape[1]
                 print("save", self.annotation_matrix.shape)
                 f.write(struct.pack('II', nframes, n_annotations) + self.annotation_matrix.ravel().tobytes())
 
 
-            
+    def save_string_list(self, string_list, outfile):
+        concat_str = ""
+        for key in string_list: 
+            concat_str += key +","
+        concat_str = concat_str[:-1]
+        outfile.write(struct.pack('I', len(concat_str))+str.encode(concat_str, 'utf-8'))
+
             
     def load(self, filename, load_phase=False, load_annotation=False):
         with open(filename, 'rb') as f:
@@ -136,24 +146,33 @@ class MotionDatabase:
             nframes, ncontacts = struct.unpack('II', f.read(8))
             self.contact_states = np.frombuffer(f.read(nframes*ncontacts), dtype=np.int8, count=nframes*ncontacts).reshape([nframes, ncontacts])
 
-            len_names_str = struct.unpack('I', f.read(4))[0]
-            name_str = str(f.read(len_names_str),"utf-8")
-            self.bone_names = name_str.split(",")
-            print(len_names_str)
+            self.bone_names = self.load_string_list(f)
             
             nbones = struct.unpack('I', f.read(4))[0]
+            print(nbones)
             self.bone_map = np.frombuffer(f.read(nbones*4), dtype=np.int32, count=nbones).reshape([nbones])
             print("loaded bone map",len(self.bone_map), self.bone_map)
 
             if load_phase:
                 nframes, n_phase_dims = struct.unpack('II', f.read(8))
                 self.phase_data = np.frombuffer(f.read(nframes*n_phase_dims*4), dtype=np.float32, count=nframes*n_phase_dims).reshape([nframes, n_phase_dims])
-                
+                if load_annotation:
+                    self.annotation_keys = self.load_string_list(f)
+                    self.annotation_values = self.load_string_list(f)
+                    nframes, n_annotations = struct.unpack('II', f.read(8))
+                    self.annotation_matrix = np.frombuffer(f.read(nframes*n_annotations*4), dtype=np.int32, count=nframes*n_annotations).reshape([nframes, n_annotations])
+                    print(self.annotation_keys, self.annotation_values)
+                    print("-------------------")
                 #print(self.phase_data[:30])
-       
-            
-
+    
         print("loaded", nframes, self.bone_names, len(self.bone_names))
+    
+    def load_string_list(self, infile):
+        str_len = struct.unpack('I',infile.read(4))[0]
+        concat_str = str(infile.read(str_len),"utf-8")
+        return concat_str.split(",")
+
+
             
     def print_shape(self):
         print("bone_positions",self.bone_positions.shape)

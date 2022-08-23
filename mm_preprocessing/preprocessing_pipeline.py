@@ -128,7 +128,6 @@ class PreprocessingPipeline:
             print("before", annotations.shape)
             annotations = griddata(original_times, annotations.reshape([nframes, -1]), sample_times, method='cubic').reshape([len(sample_times), n_annotations]).astype(np.int32)
             print("after", annotations.shape)
-            print(annotations.tolist())
         return positions, rotations, annotations
 
     def extract_sim_bone(self, positions, rotations, names, parents):
@@ -322,7 +321,7 @@ class PreprocessingPipeline:
                 
                 db.append(positions, velocities, rotations, angular_velocities, contacts)
                 if clip_annotation is not None:                
-                    db.append_clip_annotation(clip_annotation)
+                    db.append_clip_annotation(self.annotation_matrix_builder.keys, self.annotation_matrix_builder.values, clip_annotation)
                
             n_files+=1
             if n_files >= n_max_files and n_max_files > 0:
@@ -345,7 +344,7 @@ class PreprocessingPipeline:
             
             db.append(positions, velocities, rotations, angular_velocities, contacts, phase_data)
             if clip_annotation is not None:                
-                db.append_clip_annotation(clip_annotation)
+                db.append_clip_annotation(self.annotation_matrix_builder.keys, self.annotation_matrix_builder.values, clip_annotation)
             n_files+=1
             if n_files >= n_max_files and n_max_files > 0:
                 break
