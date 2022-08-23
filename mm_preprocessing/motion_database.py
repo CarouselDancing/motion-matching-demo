@@ -73,7 +73,6 @@ class MotionDatabase:
             nbones = self.bone_positions.shape[1]
             nranges = self.range_starts.shape[0]
             ncontacts = self.contact_states.shape[1]
-            print( self.bone_positions[:,0])
 
             f.write(struct.pack('II', nframes, nbones) + self.bone_positions.ravel().tobytes())
             f.write(struct.pack('II', nframes, nbones) + self.bone_velocities.ravel().tobytes())
@@ -88,23 +87,19 @@ class MotionDatabase:
 
             self.save_string_list(self.bone_names, f)
             f.write(struct.pack('I', nbones) + self.bone_map.ravel().tobytes())
-            
+
             print("save bone map",len(self.bone_map), self.bone_map.dtype)
             if len(self.phase_data) > 0:
-                #print(self.phase_data)
                 self.phase_data = np.concatenate(self.phase_data, axis=0).astype(np.float32)
                 n_phase_dims = 1
                 if len(self.phase_data.shape) >1:
                     n_phase_dims = self.phase_data.shape[1]
                 f.write(struct.pack('II', nframes, n_phase_dims) + self.phase_data.ravel().tobytes())
-                #print(self.phase_data[:30])
             
             if self.annotation_matrix is not None:
                 self.save_string_list(self.annotation_keys, f)
                 self.save_string_list(self.annotation_values, f)
-
                 n_annotations = self.annotation_matrix.shape[1]
-                print("save", self.annotation_matrix.shape)
                 f.write(struct.pack('II', nframes, n_annotations) + self.annotation_matrix.ravel().tobytes())
 
 
@@ -149,9 +144,7 @@ class MotionDatabase:
             self.bone_names = self.load_string_list(f)
             
             nbones = struct.unpack('I', f.read(4))[0]
-            print(nbones)
             self.bone_map = np.frombuffer(f.read(nbones*4), dtype=np.int32, count=nbones).reshape([nbones])
-            print("loaded bone map",len(self.bone_map), self.bone_map)
 
             if load_phase:
                 nframes, n_phase_dims = struct.unpack('II', f.read(8))
@@ -161,10 +154,6 @@ class MotionDatabase:
                     self.annotation_values = self.load_string_list(f)
                     nframes, n_annotations = struct.unpack('II', f.read(8))
                     self.annotation_matrix = np.frombuffer(f.read(nframes*n_annotations*4), dtype=np.int32, count=nframes*n_annotations).reshape([nframes, n_annotations])
-                    print(self.annotation_keys, self.annotation_values)
-                    print("-------------------")
-                #print(self.phase_data[:30])
-    
         print("loaded", nframes, self.bone_names, len(self.bone_names))
     
     def load_string_list(self, infile):
