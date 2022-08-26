@@ -263,8 +263,18 @@ class PreprocessingPipeline:
     def process_motion_file(self, filename, mirror):
         clip_name = filename.stem + filename.suffix
         positions, rotations, bone_names, bone_parents = load_file(str(filename), self.scale)
+        if clip_name in self.mask_indices_dict:
+            mask_indices = self.mask_indices_dict[clip_name]
+            if len(mask_indices) > 0:
+                mask = np.ones(len(positions), np.bool)
+                mask[mask_indices] = 0
+                positions = positions[mask]
+                rotations = rotations[mask]
+                print("ignore", filename, mask_indices)
+
+
         clip_annotation = None
-        if self.annotation_matrix_builder is not None:
+        if self.annotation_matrix_builder is not None and len(self.annotation_matrix_builder.keys)>0:
             assert clip_name in self.clip_annotation_dict
             annotation = self.clip_annotation_dict[clip_name]["annotations"]
             n_frames = len(positions)
@@ -289,53 +299,57 @@ class PreprocessingPipeline:
         return positions, velocities, rotations, angular_velocities, bone_names, bone_parents, contacts, clip_annotation
 
 
-
-    def is_valid_file(self, filename):
-        return filename.endswith("bvh") and not contains_element_in_list(filename, self.ignore_list)
-
     def load_annotation(self, motion_path):
         filename = motion_path+os.sep+"annotation.json"
         if not os.path.isfile(filename):
             return
         self.clip_annotation_dict = load_json_file(filename)
         self.annotation_matrix_builder = AnnotationMatrixBuilder(self.clip_annotation_dict)
-        self.ignore_index_dict = dict()
+        self.mask_indices_dict = dict()
         for f in self.clip_annotation_dict:
-            self.ignore_index_dict[f] = []
+            self.mask_indices_dict[f] = []
             if "ignore_frames" in self.clip_annotation_dict[f]:
                 for start_idx, end_idx in self.clip_annotation_dict[f]["ignore_frames"]:
-                    self.ignore_index_dict[f] += list(range(start_idx, end_idx))
+                    self.mask_indices_dict[f] += list(range(start_idx, end_idx))
+
+        
+
+    def get_file_list(self, motion_path, n_max_files=-1):
+        self.load_annotation(motion_path)
+        filenames = []
+        n_files = 0
+        for filename in Path(motion_path).iterdir():
+            filename_str =  filename.stem + filename.suffix
+            if not filename_str.endswith("bvh"):
+                continue
+            if contains_element_in_list(filename_str, self.ignore_list):
+                continue
+            if self.clip_annotation_dict is not None and filename_str not in self.clip_annotation_dict:
+                continue
+            n_files+=1
+            print("add", filename_str)
+            filenames.append(filename)
+            if n_files >= n_max_files and n_max_files > 0:
+                break
+        return filenames
 
         
 
     def create_db(self, motion_path, n_max_files=-1):
-        self.load_annotation(motion_path)
         db = MotionDatabase()
-        n_files = 0
-        for filename in Path(motion_path).iterdir():
-            if not self.is_valid_file( str(filename)):
-                continue
+        for filename in self.get_file_list(motion_path, n_max_files):
             for mirror in [False]:
                 print('Loading "%s" %s...' % (str(filename), "(Mirrored)" if mirror else ""))
                 positions, velocities, rotations, angular_velocities, bone_names, bone_parents, contacts, clip_annotation = self.process_motion_file(filename, mirror)
                 
                 db.append(positions, velocities, rotations, angular_velocities, contacts)
-                if clip_annotation is not None:                
-                    db.append_clip_annotation(self.annotation_matrix_builder.keys, self.annotation_matrix_builder.values, clip_annotation)
                
-            n_files+=1
-            if n_files >= n_max_files and n_max_files > 0:
-                break
         db.set_skeleton(bone_names, bone_parents, self.bone_map)
         return db
 
     def create_db_with_audio(self, motion_path, audio_path, n_max_files=-1):
-        self.load_annotation(motion_path)
         db = MotionDatabase()
-        n_files = 0
-        for filename in Path(motion_path).iterdir():
-            if not self.is_valid_file(str(filename)):
-                continue
+        for filename in self.get_file_list(motion_path, n_max_files):
             mirror = False
             print('Loading "%s" %s...' % (str(filename), "(Mirrored)" if mirror else ""))
             positions, velocities, rotations, angular_velocities, bone_names, bone_parents, contacts, clip_annotation = self.process_motion_file(filename, mirror)
@@ -345,9 +359,6 @@ class PreprocessingPipeline:
             db.append(positions, velocities, rotations, angular_velocities, contacts, phase_data)
             if clip_annotation is not None:                
                 db.append_clip_annotation(self.annotation_matrix_builder.keys, self.annotation_matrix_builder.values, clip_annotation)
-            n_files+=1
-            if n_files >= n_max_files and n_max_files > 0:
-                break
         db.set_skeleton(bone_names, bone_parents, self.bone_map)
         return db
 
