@@ -181,7 +181,7 @@ class MotionDatabase:
         if "annotation_keys" in data:
             self.annotation_keys =  self.int_list_to_string_list(data["annotation_keys"])
             self.annotation_values = self.int_list_to_string_list(data["annotation_values"])
-            self.annotation_matrix =  data["annotation_annotation_matrix"]
+            self.annotation_matrix =  data["annotation_matrix"]
 
     def string_list_to_int_list(self, names):
         return np.array([ord(c) for c in self.concat_str_list(names)]).astype(np.int32)
