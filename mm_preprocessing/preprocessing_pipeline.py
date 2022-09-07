@@ -53,9 +53,10 @@ class AnnotationMatrixBuilder:
 
         
 
-def plot_data(data):
+def plot_data(data, title=""):
     fig, ax = plt.subplots()
     n_frames = len(data)
+    if title !="": plt.title(title)
     ax.plot(data)
     #ax.bar(list(range(len(data))), data)
     plt.tight_layout()
@@ -103,19 +104,25 @@ class PreprocessingPipeline:
         self.ignore_list = kwargs.get("ignore_list", [])
         self.bone_map = kwargs.get("bone_map", [])
         self.offset_rot = None#np.pi/2
-        self.fps = 60
+        self.fps = kwargs.get("fps", 60) 
+        self.src_fps = kwargs.get("src_fps", 60) 
         self.ref_dir = np.array([0, 0, 1])
+        self.resample_rate = self.fps/ self.src_fps #1.8
         self.clip_annotation_dict = None
         self.annotation_matrix_builder = None
+        self.remove_broken_frames = kwargs.get("remove_broken_frames", False)
+        self.debug_plot = kwargs.get("debug_plot", False)
 
-    def super_sample_motion(self, positions, rotations, annotations=None, speed_up=0.1):
-        """ Supersample """
+    def resample_motion(self, positions, rotations, annotations=None, sample_rate=1.8):
+        """ Supersample 
+        sample_rate * n_frames
+        """
         
         nframes = positions.shape[0]
         nbones = positions.shape[1]
         # Supersample data to 60 fps
         original_times = np.linspace(0, nframes - 1, nframes)
-        sample_times = np.linspace(0, nframes - 1, int((1.0- speed_up) * (nframes * 2 - 1))) # Speed up data by 10%
+        sample_times = np.linspace(0, nframes - 1, int((sample_rate * nframes)- 1))
         
         # This does a cubic interpolation of the data for supersampling and also speeding up by 10%
         positions = griddata(original_times, positions.reshape([nframes, -1]), sample_times, method='cubic').reshape([len(sample_times), nbones, 3])
@@ -260,18 +267,18 @@ class PreprocessingPipeline:
         mininum_y = np.min(global_positions[:, :, 1])
         return np.array([0.0,-mininum_y,0.0], dtype=positions.dtype)
 
+    def resample_data(self, data, sample_rate):
+        n_frames = len(data)
+        original_times = np.linspace(0, n_frames - 1, n_frames)
+        sample_times = np.linspace(0, n_frames - 1, int((sample_rate * n_frames)- 1))
+        data = griddata(original_times, data.reshape([n_frames, -1]), sample_times, method='cubic').reshape([len(sample_times)])
+        return data
+            
+
     def process_motion_file(self, filename, mirror):
         clip_name = filename.stem + filename.suffix
         positions, rotations, bone_names, bone_parents = load_file(str(filename), self.scale)
-        if clip_name in self.mask_indices_dict:
-            mask_indices = self.mask_indices_dict[clip_name]
-            if len(mask_indices) > 0:
-                mask = np.ones(len(positions), np.bool)
-                mask[mask_indices] = 0
-                positions = positions[mask]
-                rotations = rotations[mask]
-                print("ignore", filename, mask_indices)
-
+        n_original_frames = len(positions)
 
         clip_annotation = None
         if self.annotation_matrix_builder is not None and len(self.annotation_matrix_builder.keys)>0:
@@ -291,11 +298,26 @@ class PreprocessingPipeline:
             rotations, positions = animation_mirror(rotations, positions, bone_names, bone_parents, self.left_prefix, self.right_prefix)
             rotations = quat.unroll(rotations)
             #self.offset_rot = np.pi
-        positions, rotations,clip_annotation = self.super_sample_motion(positions, rotations, clip_annotation)
+        #self.resample_rate = 1.8
+        positions, rotations,clip_annotation = self.resample_motion(positions, rotations, clip_annotation, self.resample_rate)
 
         positions, velocities, rotations, angular_velocities, bone_names, bone_parents, contacts = self.process_motion(positions, rotations, bone_names, bone_parents)
         
-
+        
+        if self.remove_broken_frames and clip_name in self.mask_indices_dict:
+            mask_indices = np.array(self.mask_indices_dict[clip_name])
+            m_start_indices, m_end_indices = [], []
+            if len(mask_indices) > 0:
+                mask = np.ones(n_original_frames, np.bool)
+                mask[mask_indices] = 0
+                mask = self.resample_data(mask, self.resample_rate).astype(np.bool)
+                positions = positions[mask,:]
+                velocities = velocities[mask,:]
+                rotations = rotations[mask,:]
+                angular_velocities = angular_velocities[mask,:]
+                contacts = contacts[mask,:]
+                if clip_annotation is not None:
+                    clip_annotation = clip_annotation[mask,:]
         return positions, velocities, rotations, angular_velocities, bone_names, bone_parents, contacts, clip_annotation
 
 
