@@ -1,6 +1,17 @@
 import collections
 from utils import UHumanBodyBones
+from mm_features import MMFeature, MMFeatureType
 
+
+DEFAULT_FEATURES = [
+                    MMFeature(UHumanBodyBones.LeftFoot, MMFeatureType.Position, 2),\
+                    MMFeature(UHumanBodyBones.LeftFoot, MMFeatureType.Velocity, 1),\
+                    MMFeature(UHumanBodyBones.RightFoot, MMFeatureType.Position, 2),\
+                    MMFeature(UHumanBodyBones.RightFoot, MMFeatureType.Velocity, 1),\
+                    MMFeature(UHumanBodyBones.Hips, MMFeatureType.Velocity, 2),\
+                    MMFeature(UHumanBodyBones.LastBone, MMFeatureType.TrajectoryPositions, 1),\
+                    MMFeature(UHumanBodyBones.LastBone, MMFeatureType.TrajectoryDirections, 1.25),\
+                    MMFeature(UHumanBodyBones.LastBone, MMFeatureType.Phase, 1.25)]
 
 def get_raw_settings():
     settings = dict()
@@ -152,8 +163,18 @@ def get_cmu_settings():
     return settings
 
 
+def add_feature_descs(settings):
+    settings["feature_descs"] = DEFAULT_FEATURES
+    for i in range(len( settings["feature_descs"])):
+      bone = settings["feature_descs"][i].bone
+      bone_idx = settings["bone_map"].index(bone)
+      #print(bone, bone_idx)
+      settings["feature_descs"][i].bone_idx = bone_idx
+    return settings
+
 SETTINGS = dict()
-SETTINGS["raw"] = get_raw_settings()
-SETTINGS["captury"] = get_captury_settings()
-SETTINGS["aist"] = get_aist_settings()
-SETTINGS["cmu"] = get_cmu_settings()
+SETTINGS["raw"] = add_feature_descs(get_raw_settings())
+SETTINGS["captury"] = add_feature_descs(get_captury_settings())
+SETTINGS["aist"] = add_feature_descs(get_aist_settings())
+SETTINGS["cmu"] = add_feature_descs(get_cmu_settings())
+
