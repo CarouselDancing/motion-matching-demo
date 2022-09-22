@@ -150,7 +150,7 @@ class MotionDatabase:
         data["bone_parents"] = self.bone_parents
         data["range_starts"] = np.array(self.range_starts).astype(np.int32)
         data["range_stops"] = np.array(self.range_stops).astype(np.int32)
-        data["contact_states"] = self.contact_states
+        data["contact_states"] = np.array(self.contact_states).astype(np.int32)
         data["bone_names"] = self.string_list_to_int_list(self.bone_names)#np.array([ord(c) for c in self.concat_str_list(self.bone_names)]).astype(np.int32)
         
         data["bone_map"] = np.array(self.bone_map).astype(np.int32)
@@ -176,7 +176,7 @@ class MotionDatabase:
         self.bone_parents = data["bone_parents"]
         self.range_starts = data["range_starts"]
         self.range_stops = data["range_stops"]
-        self.contact_states = data["contact_states"]
+        self.contact_states = np.array(data["contact_states"]).astype(np.int32) 
         #print(data["bone_names"])
         #sys.exit()
        
