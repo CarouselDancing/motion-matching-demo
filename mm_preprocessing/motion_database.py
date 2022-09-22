@@ -1,7 +1,8 @@
 import numpy as np
 import struct
 from transformations import quaternion_matrix, quaternion_inverse
-from mm_features import calculate_normalized_features
+from mm_features import MMFeature, MMFeatureType, calculate_normalized_features
+from utils import UHumanBodyBones
 
 
 class MotionDatabase:
@@ -23,6 +24,7 @@ class MotionDatabase:
     features = None
     features_mean = None
     features_scale = None
+    feature_descs = []
 
     def append_clip_annotation(self, keys, values, clip_annotation_matrix):
         self.annotation_keys = keys
@@ -56,20 +58,30 @@ class MotionDatabase:
         if phase_data is not None:
             self.phase_data.append(phase_data)
 
-    def write(self, filename):
-                
-        """ Concatenate Data """
-
+    def concatenate_data(self, convert_coodinate_system=False):
         self.bone_positions = np.concatenate(self.bone_positions, axis=0).astype(np.float32)
+        
         self.bone_velocities = np.concatenate(self.bone_velocities, axis=0).astype(np.float32)
         self.bone_rotations = np.concatenate(self.bone_rotations, axis=0).astype(np.float32)
         self.bone_angular_velocities = np.concatenate(self.bone_angular_velocities, axis=0).astype(np.float32)
         self.bone_parents = self.bone_parents.astype(np.int32)
+        if convert_coodinate_system:
+            self.bone_positions[:, : ,0 ] *= -1
+            self.bone_rotations[:, : ,:2] *= -1 # 0 and 1
+            self.bone_velocities[:, : ,0 ] *= -1
+            self.bone_angular_velocities[:, : ,0 ] *= -1
 
         self.range_starts = np.array(self.range_starts).astype(np.int32)
         self.range_stops = np.array(self.range_stops).astype(np.int32)
-
         self.contact_states = np.concatenate(self.contact_states, axis=0).astype(np.uint8)
+        if len(self.phase_data) > 0:# and len(self.phase_data.shape) > 1:
+            #print(self.phase_data.shape)
+            self.phase_data = np.concatenate(self.phase_data, axis=0).astype(np.float32)
+
+
+    def write(self, filename, concatenate=True):
+                
+        if concatenate: self.concatenate_data()
 
         """ Write Database """
         print("Writing Database...")
@@ -97,10 +109,10 @@ class MotionDatabase:
 
             print("save bone map",len(self.bone_map), self.bone_map.dtype)
             if len(self.phase_data) > 0:
-                self.phase_data = np.concatenate(self.phase_data, axis=0).astype(np.float32)
+                #self.phase_data = np.concatenate(self.phase_data, axis=0).astype(np.float32)
                 n_phase_dims = 1
-                if len(self.phase_data.shape) >1:
-                    n_phase_dims = self.phase_data.shape[1]
+                #if len(self.phase_data.shape) >1:
+                #    n_phase_dims = self.phase_data.shape[1]
                 f.write(struct.pack('II', nframes, n_phase_dims) + self.phase_data.ravel().tobytes())
             
             if self.annotation_matrix is not None:
@@ -109,19 +121,9 @@ class MotionDatabase:
                 n_annotations = self.annotation_matrix.shape[1]
                 f.write(struct.pack('II', nframes, n_annotations) + self.annotation_matrix.ravel().tobytes())
 
-    def write_to_numpy(self, filename):
-        self.bone_positions = np.concatenate(self.bone_positions, axis=0).astype(np.float32)
-        self.bone_velocities = np.concatenate(self.bone_velocities, axis=0).astype(np.float32)
-        self.bone_rotations = np.concatenate(self.bone_rotations, axis=0).astype(np.float32)
-        self.bone_angular_velocities = np.concatenate(self.bone_angular_velocities, axis=0).astype(np.float32)
-        self.bone_parents = self.bone_parents.astype(np.int32)
-
-        self.range_starts = np.array(self.range_starts).astype(np.int32)
-        self.range_stops = np.array(self.range_stops).astype(np.int32)
-        self.contact_states = np.concatenate(self.contact_states, axis=0).astype(np.uint8)
-        if len(self.phase_data) > 0:
-            self.phase_data = np.concatenate(self.phase_data, axis=0).astype(np.float32)
+    def write_to_numpy(self, filename, concatenate=True):
         
+        if concatenate: self.concatenate_data()
         data = self.to_dict()
         #np.save(filename, data)
         print("save", filename)
@@ -162,6 +164,14 @@ class MotionDatabase:
             data["annotation_keys"] = self.string_list_to_int_list(self.annotation_keys)# str.encode(self.concat_str_list(self.annotation_keys), 'utf-8')
             data["annotation_values"] = self.string_list_to_int_list(self.annotation_values)#str.encode(self.concat_str_list(self.annotation_values), 'utf-8')
             data["annotation_matrix"] = self.annotation_matrix
+
+        if self.features is not None:
+            data["features"] = np.array(self.features).astype(np.float32) 
+            data["features_mean"] = np.array(self.features_mean).astype(np.float32)
+            data["features_scale"] = np.array(self.features_scale).astype(np.float32)
+            data["feature_types"] = np.array([int(f.ftype) for f in self.feature_descs], np.int32)
+            data["feature_bones"] = np.array([int(f.bone) for f in self.feature_descs], np.int32)
+            data["feature_weights"] = np.array([f.weight for f in self.feature_descs], np.float32)
         return data
 
     def from_dict(self, data):
@@ -188,6 +198,20 @@ class MotionDatabase:
             self.annotation_keys =  self.int_list_to_string_list(data["annotation_keys"])
             self.annotation_values = self.int_list_to_string_list(data["annotation_values"])
             self.annotation_matrix =  data["annotation_matrix"]
+        if "features" in data:
+            self.features = data["features"]
+            self.features_mean = data["features_mean"]
+            self.features_scale = data["features_scale"]
+            self.feature_descs = []
+            feature_bones = data["feature_bones"]
+            feature_types = data["feature_types"]
+            feature_weights = data["feature_weights"]
+            for bone, ftype, weight in zip(feature_bones, feature_types, feature_weights):
+                f_desc = MMFeature(UHumanBodyBones(bone), MMFeatureType(ftype), weight)
+                self.feature_descs.append(f_desc)
+                print(f_desc.bone)
+                print(f_desc.ftype)
+                print(f_desc.weight)
 
     def string_list_to_int_list(self, names):
         return np.array([ord(c) for c in self.concat_str_list(names)]).astype(np.int32)
@@ -274,6 +298,8 @@ class MotionDatabase:
         print("range_starts",self.range_starts.shape)
         print("range_stops",self.range_stops.shape)
         print("contact_states",self.contact_states.shape)
+        if self.features is not None:
+            print("features", self.features.shape)
 
 
     def get_relative_bone_positions(self, bone_idx):
@@ -403,5 +429,6 @@ class MotionDatabase:
 
 
     def calculate_features(self, feature_descs):
+        self.feature_descs = feature_descs
         self.features, self.features_mean, self.features_scale = calculate_normalized_features(self, feature_descs)
         print("finished calculating features")
