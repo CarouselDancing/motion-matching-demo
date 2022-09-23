@@ -44,7 +44,7 @@ def get_raw_settings():
     
     settings["scale"] = 0.01
     settings["toes"] = ["RightToeBase", "LeftToeBase"]
-    settings["joint_names"] = list(joint_map.keys())
+    #settings["joint_names"] = ["Simulation"]+list(joint_map.keys())
     settings["bone_map"] = [UHumanBodyBones.LastBone]+list(joint_map.values())
     settings["sim_position_joint_name"] = "Spine1"
     settings["sim_rotation_joint_name"] = "Hips"
@@ -82,12 +82,13 @@ def get_captury_settings():
     
     settings["scale"] = 0.01
     settings["toes"] = ["RightToeBase", "LeftToeBase"]
-    settings["joint_names"] = list(joint_map.keys())
+    settings["joint_names"] = ["Simulation"]+list(joint_map.keys())
     settings["bone_map"] = [UHumanBodyBones.LastBone]+list(joint_map.values())
     settings["sim_position_joint_name"] = "Spine3"
     settings["sim_rotation_joint_name"] = "Hips"
     settings["left_prefix"] = "Left"
     settings["right_prefix"] = "Right"
+    settings["feature_descs"] = DEFAULT_FEATURES
     return settings
 
 
@@ -113,6 +114,7 @@ def get_aist_settings():
     settings["sim_rotation_joint_name"] = "root"
     settings["left_prefix"] = "l"
     settings["right_prefix"] = "r"
+    settings["feature_descs"] = DEFAULT_FEATURES
     return settings
 
 
@@ -152,9 +154,9 @@ def get_cmu_settings():
                     "rthumb": UHumanBodyBones.Jaw, 
                     })
     
-    settings["scale"] = 0.1
+    settings["scale"] = 0.06
     settings["toes"] = ["rtoes", "ltoes"]
-    settings["joint_names"] = list(joint_map.keys())
+    settings["joint_names"] =["Simulation"]+ list(joint_map.keys())
     settings["bone_map"] = [UHumanBodyBones.LastBone]+list(joint_map.values())
     settings["sim_position_joint_name"] = "thorax"
     settings["sim_rotation_joint_name"] = "root"
@@ -165,6 +167,7 @@ def get_cmu_settings():
 
 def add_feature_descs(settings):
     settings["feature_descs"] = DEFAULT_FEATURES
+    return settings
     for i in range(len( settings["feature_descs"])):
       bone = settings["feature_descs"][i].bone
       bone_idx = settings["bone_map"].index(bone)

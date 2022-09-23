@@ -262,7 +262,7 @@ class PreprocessingPipeline:
         return positions, velocities, rotations, angular_velocities, bone_names, bone_parents, contacts
 
     def estimate_ground_offset(self, positions, rotations, parents):
-        toe_idx = self.joint_names.index(self.toes[0])
+        #toe_idx = self.joint_names.index(self.toes[0])
         global_rotations, global_positions = quat.fk(rotations, positions, parents)
         mininum_y = np.min(global_positions[:, :, 1])
         return np.array([0.0,-mininum_y,0.0], dtype=positions.dtype)
@@ -288,7 +288,7 @@ class PreprocessingPipeline:
             clip_annotation = self.annotation_matrix_builder.build_clip_annotation_matrix(annotation, n_frames)
         #print(positions.shape)
         #print(bone_names, len(self.joint_names))
-        bone_names = self.joint_names
+        #bone_names = self.joint_names
         self.grounding_offset = self.estimate_ground_offset(positions, rotations, bone_parents)
         if self.ground_motion:
             #print(positions[:,0].shape, self.grounding_offset)

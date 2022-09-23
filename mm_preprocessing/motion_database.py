@@ -1,7 +1,7 @@
 import numpy as np
 import struct
 from transformations import quaternion_matrix, quaternion_inverse
-from mm_features import MMFeature, MMFeatureType, calculate_normalized_features
+from mm_features import MMFeature, MMFeatureType, calculate_features, get_feature_weigth_vector, calculate_feature_mean_and_scale
 from utils import UHumanBodyBones
 
 
@@ -40,9 +40,8 @@ class MotionDatabase:
     def set_skeleton(self, bone_names, bone_parents, bone_map):
         self.bone_names = bone_names
         self.bone_parents = bone_parents
-        print(len(bone_map))
-        self.bone_map = np.array(list(map(int,bone_map)), dtype=np.int32)
-        print(len(self.bone_map))
+        #self.bone_map = bone_map
+        self.bone_map = np.array(list(map(int,bone_map)), dtype=np.int32).tolist()
 
     def append(self,positions, velocities, rotations, angular_velocities, contacts, phase_data=None):
         self.bone_positions.append(positions)
@@ -65,11 +64,6 @@ class MotionDatabase:
         self.bone_rotations = np.concatenate(self.bone_rotations, axis=0).astype(np.float32)
         self.bone_angular_velocities = np.concatenate(self.bone_angular_velocities, axis=0).astype(np.float32)
         self.bone_parents = self.bone_parents.astype(np.int32)
-        if convert_coodinate_system:
-            self.bone_positions[:, : ,0 ] *= -1
-            self.bone_rotations[:, : ,:2] *= -1 # 0 and 1
-            self.bone_velocities[:, : ,0 ] *= -1
-            self.bone_angular_velocities[:, : ,0 ] *= -1
 
         self.range_starts = np.array(self.range_starts).astype(np.int32)
         self.range_stops = np.array(self.range_stops).astype(np.int32)
@@ -307,10 +301,9 @@ class MotionDatabase:
         positions = np.zeros((n_frames, 3))
         for frame_idx in range(n_frames):
             p, r = self.fk(frame_idx, bone_idx)
-            p = p - self.bone_positions[frame_idx, 0]
-            inv_root_m = quaternion_matrix(quaternion_inverse(self.bone_rotations[frame_idx, 0]))[:3, :3]
-            p = np.dot(inv_root_m, p)
-            positions[frame_idx] = p
+            relative_p = p - self.bone_positions[frame_idx, 0]
+            inv_root_m = np.linalg.inv(self.get_bone_rotation_matrix(frame_idx, 0))
+            positions[frame_idx] = np.dot(inv_root_m, relative_p)
         return positions
 
     def get_relative_bone_velocities(self, bone_idx):
@@ -318,9 +311,8 @@ class MotionDatabase:
         velocities = np.zeros((n_frames, 3))
         for frame_idx in range(n_frames):
             p, lv, r, av = self.fk_velocity(frame_idx, bone_idx)
-            inv_root_m = quaternion_matrix(quaternion_inverse(self.bone_rotations[frame_idx, 0]))[:3, :3]
-            lv = np.dot(inv_root_m, lv)
-            velocities[frame_idx] = lv
+            inv_root_m = np.linalg.inv(self.get_bone_rotation_matrix(frame_idx, 0))
+            velocities[frame_idx] = np.dot(inv_root_m, lv)
         return velocities
 
     def trajectory_index_clamp(self, frame_idx, offset):
@@ -355,9 +347,12 @@ class MotionDatabase:
         frame_pos, frame_rot = self.fk(frame_idx, bone_idx)
         inv_frame_rot = np.linalg.inv(frame_rot)
         frame_pos = self.bone_positions[frame_idx, bone_idx]
-        t0_pos, _ = self.fk(t0, bone_idx)
-        t1_pos, _ = self.fk(t1, bone_idx)
-        t2_pos, _ = self.fk(t2, bone_idx)
+        #t0_pos, _ = self.fk(t0, bone_idx)
+        #t1_pos, _ = self.fk(t1, bone_idx)
+        #t2_pos, _ = self.fk(t2, bone_idx)
+        t0_pos = self.bone_positions[t0, bone_idx]
+        t1_pos = self.bone_positions[t1, bone_idx]
+        t2_pos = self.bone_positions[t2, bone_idx]
         delta0 = np.dot(inv_frame_rot, t0_pos- frame_pos)
         delta1 = np.dot(inv_frame_rot, t1_pos- frame_pos)
         delta2 = np.dot(inv_frame_rot, t2_pos- frame_pos)
@@ -383,9 +378,12 @@ class MotionDatabase:
         pos_trajectory = np.zeros(6)
         frame_pos, frame_rot = self.fk(frame_idx, bone_idx)
         inv_frame_rot = np.linalg.inv(frame_rot)
-        _, t0_rot = self.fk(t0, bone_idx)
-        _, t1_rot = self.fk(t1, bone_idx)
-        _, t2_rot = self.fk(t2, bone_idx)
+        #_, t0_rot = self.fk(t0, bone_idx)
+        #_, t1_rot = self.fk(t1, bone_idx)
+        #_, t2_rot = self.fk(t2, bone_idx)
+        t0_rot = self.get_bone_rotation_matrix(t0, bone_idx)
+        t1_rot = self.get_bone_rotation_matrix(t1, bone_idx)
+        t2_rot = self.get_bone_rotation_matrix(t2, bone_idx)
         delta0 = np.dot(inv_frame_rot, np.dot(t0_rot, [0,0,1]))
         delta1 = np.dot(inv_frame_rot, np.dot(t1_rot, [0,0,1]))
         delta2 = np.dot(inv_frame_rot, np.dot(t2_rot, [0,0,1]))
@@ -397,24 +395,27 @@ class MotionDatabase:
         pos_trajectory[5] = delta2[2]
         return pos_trajectory
 
+    def get_bone_rotation_matrix(self, frame_idx, bone_idx):
+        return quaternion_matrix(self.bone_rotations[frame_idx, bone_idx])[:3,:3]
+
 
     def fk(self, frame_idx, bone_idx):
         if self.bone_parents[bone_idx] != -1:
             parent_idx = self.bone_parents[bone_idx]
             parent_pos, parent_rot = self.fk(frame_idx, parent_idx)
-            bone_m = quaternion_matrix(self.bone_rotations[frame_idx, bone_idx])[:3, :3]
+            bone_m = self.get_bone_rotation_matrix(frame_idx, bone_idx)
             global_pos = parent_pos+ np.dot(parent_rot, self.bone_positions[frame_idx, bone_idx])
             global_rot = np.dot(parent_rot, bone_m)
             return global_pos, global_rot
 
         else:
-            return self.bone_positions[frame_idx, bone_idx], quaternion_matrix(self.bone_rotations[frame_idx, bone_idx])[:3, :3]
+            return self.bone_positions[frame_idx, bone_idx], self.get_bone_rotation_matrix(frame_idx, bone_idx)
 
     def fk_velocity(self, frame_idx, bone_idx):
         if self.bone_parents[bone_idx] != -1:
             parent_idx = self.bone_parents[bone_idx]
             parent_pos, parent_lv, parent_rot, parent_av = self.fk_velocity(frame_idx, parent_idx)
-            bone_m = quaternion_matrix(self.bone_rotations[frame_idx, bone_idx])[:3, :3]
+            bone_m = self.get_bone_rotation_matrix(frame_idx, bone_idx) #quaternion_matrix(self.bone_rotations[frame_idx, bone_idx])[:3, :3]
             global_pos = parent_pos+ np.dot(parent_rot, self.bone_positions[frame_idx, bone_idx])
             global_vel = parent_lv + np.dot(parent_rot, self.bone_velocities[frame_idx, bone_idx]) + np.cross(parent_av, np.dot(parent_rot, self.bone_positions[frame_idx, bone_idx]))
             global_rot = np.dot(parent_rot, bone_m)
@@ -424,11 +425,32 @@ class MotionDatabase:
         else:
             return self.bone_positions[frame_idx, bone_idx], \
                 self.bone_velocities[frame_idx, bone_idx], \
-                quaternion_matrix(self.bone_rotations[frame_idx, bone_idx])[:3, :3], \
+                self.get_bone_rotation_matrix(frame_idx, bone_idx), \
                 self.bone_angular_velocities[frame_idx, bone_idx]
 
 
-    def calculate_features(self, feature_descs):
+    def calculate_features(self, feature_descs, convert_coodinate_system=False, normalize=True):
+        feature_descs = self.map_bones_to_indices(feature_descs)
+        if convert_coodinate_system:
+            self.bone_positions[:, : ,0 ] *= -1
+            self.bone_rotations[:, : ,0] *= -1
+            self.bone_rotations[:, : ,1] *= -1 
+            self.bone_velocities[:, : ,0 ] *= -1
+            self.bone_angular_velocities[:, : ,0 ] *= -1
         self.feature_descs = feature_descs
-        self.features, self.features_mean, self.features_scale = calculate_normalized_features(self, feature_descs)
+        self.features = calculate_features(self, feature_descs)
+        feature_weight_vector = get_feature_weigth_vector(feature_descs)
+        self.features_mean, self.features_scale = calculate_feature_mean_and_scale(self.features, feature_weight_vector)
+        if normalize:
+            self.features = (self.features-self.features_mean) / self.features_scale
         print("finished calculating features")
+    
+    def map_bones_to_indices(self, feature_descs):
+        for i in range(len(feature_descs)):
+            bone =feature_descs[i].bone
+            bone_idx = 0
+            if bone != UHumanBodyBones.LastBone:
+                bone_idx = self.bone_map.index(int(bone))
+                print(bone, bone_idx)
+            feature_descs[i].bone_idx = bone_idx
+        return feature_descs
