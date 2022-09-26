@@ -8,7 +8,7 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/MotionMatching/Demo/Scenes/random_walk.unity
     guid: 3fb72ae750be9b04e860b1fd3feca009
-  - enabled: 1
-    path: Assets/MotionMatching/Demo/Scenes/empty.unity
-    guid: 0b9fc7a770297a643bc9891422649735
+  - enabled: 0
+    path: 
+    guid: 00000000000000000000000000000000
   m_configObjects: {}
