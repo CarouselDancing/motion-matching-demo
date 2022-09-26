@@ -1,5 +1,6 @@
 import numpy as np
 import struct
+from sklearn.neighbors import KDTree
 from transformations import quaternion_matrix, quaternion_inverse
 from mm_features import MMFeature, MMFeatureType, calculate_features, get_feature_weigth_vector, calculate_feature_mean_and_scale
 from utils import UHumanBodyBones
@@ -16,15 +17,23 @@ class MotionDatabase:
     range_stops = []
     contact_states = []
     phase_data = []
+    #retargeting
     bone_names = []
     bone_map = []
+
+    #annotation
     annotation_keys = []
     annotation_values = []
     annotation_matrix = None
+
+    #precalculated features
     features = None
     features_mean = None
     features_scale = None
     feature_descs = []
+
+
+    neighbor_matrix = None
 
     def append_clip_annotation(self, keys, values, clip_annotation_matrix):
         self.annotation_keys = keys
@@ -166,6 +175,10 @@ class MotionDatabase:
             data["feature_types"] = np.array([int(f.ftype) for f in self.feature_descs], np.int32)
             data["feature_bones"] = np.array([int(f.bone) for f in self.feature_descs], np.int32)
             data["feature_weights"] = np.array([f.weight for f in self.feature_descs], np.float32)
+
+        if self.neighbor_matrix is not None:
+            data["neighbor_matrix"] = np.array(self.neighbor_matrix).astype(np.int32) 
+
         return data
 
     def from_dict(self, data):
@@ -206,6 +219,12 @@ class MotionDatabase:
                 print(f_desc.bone)
                 print(f_desc.ftype)
                 print(f_desc.weight)
+        if "neighbor_matrix" in data:
+            self.neighbor_matrix =  data["neighbor_matrix"]
+            print("loaded neighbor matrix")
+            print(self.neighbor_matrix.shape)
+            print(self.neighbor_matrix[:10])
+
 
     def string_list_to_int_list(self, names):
         return np.array([ord(c) for c in self.concat_str_list(names)]).astype(np.int32)
@@ -454,3 +473,16 @@ class MotionDatabase:
                 print(bone, bone_idx)
             feature_descs[i].bone_idx = bone_idx
         return feature_descs
+
+    def calculate_neighbors(self, k=100, normalize=False):
+        features = self.features[:]
+        if normalize:
+            features = (features-self.features_mean) / self.features_scale
+        features = features[:, :15]#ignore trajectory fedatures
+        tree = KDTree(features, leaf_size=2)
+        print("calc neigh")      
+        _, neighbors = tree.query(features, k=k+1) # ignore itself
+        self.neighbor_matrix = np.array(neighbors, dtype=np.int32)[:,1:]
+
+        print(self.neighbor_matrix.shape)
+        print(self.neighbor_matrix[:10])
