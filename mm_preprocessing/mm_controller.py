@@ -174,7 +174,7 @@ def load_mm_database(builder, filename):
     scene_object.name = name
     db = MotionDatabase()
     db.load(filename)
-    animation_controller = MMExplorer(scene_object, color=get_random_color())
+    animation_controller = MMController(scene_object, color=get_random_color())
     animation_controller.set_data(db)
     scene_object.add_component("animation_controller", animation_controller)
     controller = scene_object._components["animation_controller"]
@@ -187,7 +187,7 @@ def load_mm_database_numpy(builder, filename):
     scene_object.name = name
     db = MotionDatabase()
     db.load_from_numpy(filename)
-    animation_controller = MMExplorer(scene_object, color=get_random_color())
+    animation_controller = MMController(scene_object, color=get_random_color())
     animation_controller.set_data(db)
     scene_object.add_component("animation_controller", animation_controller)
     controller = scene_object._components["animation_controller"]
