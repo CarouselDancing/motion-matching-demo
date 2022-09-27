@@ -486,3 +486,18 @@ class MotionDatabase:
 
         print(self.neighbor_matrix.shape)
         print(self.neighbor_matrix[:10])
+
+    
+    def find_transition(self, pose, frame_idx):
+        next_frame_idx = frame_idx +1
+        best_cost = np.inf
+        query = self.features[frame_idx]
+        for i in range(self.neighbor_matrix.shape[1]):
+            ni = self.neighbor_matrix[frame_idx, i]
+            nf = self.features[ni]
+            cost = np.linalg.norm(nf - query)
+            if cost < best_cost:
+                next_frame_idx = ni
+                best_cost = cost
+        return next_frame_idx
+    

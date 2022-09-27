@@ -4,7 +4,7 @@ import quat
 from transformations import quaternion_matrix, quaternion_from_matrix, quaternion_from_euler
 
 class MMPose:
-    def __init__(self, parents, scale=10, use_sim=True)-> None:
+    def __init__(self, parents, scale=100, use_sim=True)-> None:
         
         self.parents = parents
         self.n_bones = len(self.parents)
@@ -35,8 +35,7 @@ class MMPose:
             self.rotations[0] = self.sim_rotation
         self.lin_vel = db.bone_velocities[frame_idx,0]*self.scale
         self.ang_vel = db.bone_angular_velocities[frame_idx,0]
-        for i in range(self.n_bones):
-            self.fk(i)
+        self.update_fk_buffer()
 
     def update_sim(self, dt):
         delta_pos  = quat.mul_vec(self.sim_rotation, self.lin_vel*dt)
@@ -44,6 +43,10 @@ class MMPose:
         global_ang_vel = quat.mul_vec(self.sim_rotation, self.ang_vel*dt)
         delta_rot = quat.from_euler(global_ang_vel)
         self.sim_rotation = quat.mul(self.sim_rotation, delta_rot)
+
+    def update_fk_buffer(self):
+        for i in range(self.n_bones):
+            self.fk(i)
 
     def fk(self, bone_idx):
         if self.parents[bone_idx] != -1:
