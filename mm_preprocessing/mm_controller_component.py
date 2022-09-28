@@ -38,6 +38,9 @@ class MMControllerComponent(ComponentBase, AnimationController):
     def set_data(self, mm_database):
         self.mm_controller.set_data(mm_database)
 
+    def set_animator_target(self, target_controller, src_skeleton):
+        self.mm_controller.set_animator_target(target_controller, src_skeleton)
+
     def update(self, dt):
         pos = np.array(self.mm_controller.pose.sim_position[:])
         pos[1] = 5
@@ -46,6 +49,7 @@ class MMControllerComponent(ComponentBase, AnimationController):
         if not self.isLoadedCorrectly() or not self.playAnimation:
             return
         self.currentFrameNumber, self.animationTime = self.mm_controller.update(dt* self.animationSpeed)
+        self.mm_controller.update_target()
         # update gui
         if self.currentFrameNumber > self.getNumberOfFrames():
             self.resetAnimationTime()

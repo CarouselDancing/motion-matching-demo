@@ -2,9 +2,8 @@ import os
 import json
 from vis_utils.glut_app import GLUTApp
 from vis_utils.scene.task_manager import Task
-from anim_utils.animation_data import BVHReader, MotionVector, SkeletonBuilder
+from anim_utils.animation_data import BVHReader, SkeletonBuilder
 import mm_controller_component
-import runtime_retargeting 
 
 MODEL_DATA_PATH = "data"+os.sep+"models"
 
@@ -68,12 +67,11 @@ def main(mm_filename, src_skeleton_filename=None, mesh_filename=None, retargetin
 
     if mesh_filename is not None:
         mo = app.scene.object_builder.create_object_from_file("fbx_model",mesh_filename, scale=10)
-        anim_c = mo._components["animation_controller"]
-        target_skeleton = anim_c._visualization.skeleton
+        target_controller = mo._components["animation_controller"]
+        target_skeleton = target_controller._visualization.skeleton
         target_skeleton.skeleton_model = load_skeleton_model(retargeting_config.dst_type)
-        retargeting = app.scene.object_builder.create_component("runtime_retargeting",o, target_skeleton, anim_c)
         src_skeleton = load_skeleton(src_skeleton_filename, retargeting_config.src_type)
-        retargeting.set_animation_src(src_skeleton, c)
+        c.set_animator_target(target_controller, src_skeleton)
 
     app.keyboard_handler["control"] = (control_func, (app, c))
     
