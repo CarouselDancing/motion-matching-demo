@@ -1,8 +1,8 @@
 import os
 import argparse
-from motion_database import MotionDatabase
-from preprocessing_pipeline import PreprocessingPipeline, load_ignore_list
-from settings import SETTINGS
+from motion_matching.mm_database import MMDatabase
+from motion_matching.preprocessing_pipeline import PreprocessingPipeline, load_ignore_list
+from motion_matching.settings import SETTINGS
 
 
 def load_ignore_list(filename):
@@ -27,7 +27,7 @@ def main(**kwargs):
         db.write(out_filename)
         #db.print_shape()
 
-    db = MotionDatabase()
+    db = MMDatabase()
     db.load(out_filename)
     db.print_shape()
 

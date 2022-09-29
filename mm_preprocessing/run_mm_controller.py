@@ -3,7 +3,7 @@ import json
 from vis_utils.glut_app import GLUTApp
 from vis_utils.scene.task_manager import Task
 from anim_utils.animation_data import BVHReader, SkeletonBuilder
-import mm_controller_component
+import motion_matching.mm_controller_visualization
 
 MODEL_DATA_PATH = "data"+os.sep+"models"
 
