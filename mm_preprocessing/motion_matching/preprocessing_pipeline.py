@@ -357,7 +357,7 @@ class PreprocessingPipeline:
         
 
     def create_db(self, motion_path, n_max_files=-1):
-        db = MotionDatabase()
+        db = MMDatabase()
         for filename in self.get_file_list(motion_path, n_max_files):
             for mirror in [False]:
                 print('Loading "%s" %s...' % (str(filename), "(Mirrored)" if mirror else ""))
@@ -369,7 +369,7 @@ class PreprocessingPipeline:
         return db
 
     def create_db_with_audio(self, motion_path, audio_path, n_max_files=-1):
-        db = MotionDatabase()
+        db = MMDatabase()
         for filename in self.get_file_list(motion_path, n_max_files):
             mirror = False
             print('Loading "%s" %s...' % (str(filename), "(Mirrored)" if mirror else ""))
