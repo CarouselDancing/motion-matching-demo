@@ -2,11 +2,11 @@ import numpy as np
 import struct
 from sklearn.neighbors import KDTree
 from transformations import quaternion_matrix, quaternion_inverse
-from mm_features import MMFeature, MMFeatureType, calculate_features, get_feature_weigth_vector, calculate_feature_mean_and_scale
-from utils import UHumanBodyBones
+from .mm_features import MMFeature, MMFeatureType, calculate_features, get_feature_weigth_vector, calculate_feature_mean_and_scale
+from .utils import UHumanBodyBones
 
 
-class MotionDatabase:
+class MMDatabase:
     fps = 60
     bone_positions = []
     bone_velocities = []
@@ -492,12 +492,12 @@ class MotionDatabase:
         print(self.neighbor_matrix[:10])
 
     
-    def find_transition(self, pose, frame_idx):
-        next_frame_idx = frame_idx +1
+    def find_transition(self, pose, next_frame_idx):
         best_cost = np.inf
-        query = self.features[frame_idx]
-        for i in range(self.neighbor_matrix.shape[1]):
-            ni = self.neighbor_matrix[frame_idx, i]
+        query = self.features[next_frame_idx]
+        for i in range(2, self.neighbor_matrix.shape[1]):
+            ni = self.neighbor_matrix[next_frame_idx, i]
+            #print(ni)
             nf = self.features[ni]
             cost = np.linalg.norm(nf - query)
             if cost < best_cost:

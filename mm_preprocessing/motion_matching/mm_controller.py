@@ -1,6 +1,6 @@
 
 import numpy as np
-from mm_pose import MMPose
+from .mm_pose import MMPose
 
 class MMController():
     def __init__(self) -> None:

@@ -1,6 +1,5 @@
-
 import numpy as np
-import quat
+from . import quat
 from transformations import quaternion_matrix, quaternion_from_matrix, quaternion_from_euler
 
 class MMPose:

@@ -1,8 +1,8 @@
 
 import numpy as np
 from PySignal import Signal
-from motion_database import MotionDatabase
-from mm_controller import MMController
+from .mm_database import MMDatabase
+from .mm_controller import MMController
 from vis_utils.scene.scene_object_builder import SceneObject, SceneObjectBuilder
 from vis_utils.scene.components import ComponentBase
 from vis_utils.animation.animation_controller import AnimationController
@@ -13,20 +13,22 @@ from vis_utils.scene.utils import get_random_color
 DEFAULT_COLOR = [0, 0, 1]
 
 
-class MMControllerComponent(ComponentBase, AnimationController):
+class MMControllerVisualization(ComponentBase, AnimationController):
     updated_animation_frame = Signal()
     reached_end_of_animation = Signal()
-    def __init__(self, scene_object, color=DEFAULT_COLOR, visualize=True):
+    def __init__(self, scene_object, color=DEFAULT_COLOR, visualize=True, vis_scale=0.1):
         ComponentBase.__init__(self, scene_object)
         AnimationController.__init__(self)        
         self.visualize = visualize
         self.skeleton = None
         if visualize:
-            self._sphere = SphereRenderer(10, 10, 1, color=color)
+            self._sphere = SphereRenderer(10, 10, vis_scale, color=color)
             a = [0, 0, 0]
             b = [1, 0, 0]
             self._line = DebugLineRenderer(a, b, [0, 1, 0])
-        self.debug_line_len = 1
+            self._vel_line = DebugLineRenderer(a, b, [1, 0, 0])
+            self._ref_vel_line = DebugLineRenderer(a, b, [0, 0,1])
+        self.debug_line_len = 5
         self.mm_controller = MMController()
 
     def toggle_animation_loop(self):
@@ -35,20 +37,34 @@ class MMControllerComponent(ComponentBase, AnimationController):
     def isLoadedCorrectly(self):
         return self.mm_controller.mm_database is not None
 
-    def set_data(self, mm_database):
-        self.mm_controller.set_data(mm_database)
+    def set_data(self, mm_database, scale=1.0):
+        self.mm_controller.set_data(mm_database, scale)
 
     def set_animator_target(self, target_controller, src_skeleton):
         self.mm_controller.set_animator_target(target_controller, src_skeleton)
 
-    def update(self, dt):
+    def update_debug_vis(self):
         pos = np.array(self.mm_controller.pose.sim_position[:])
         pos[1] = 5
         target = pos + self.mm_controller.target_dir * self.debug_line_len
         self._line.set_line(pos, target)
+
+
+        target = pos + self.mm_controller.pose.get_linear_velocity() * self.debug_line_len
+        self._vel_line.set_line(pos, target)
+
+        pos = np.array(self.mm_controller.pose.ref_position[:])
+        target = pos + self.mm_controller.pose.get_ref_linear_velocity() * self.debug_line_len
+        self._ref_vel_line.set_line(pos, target)
+        return
+
+    def update(self, dt):
+        self.update_debug_vis()
         if not self.isLoadedCorrectly() or not self.playAnimation:
             return
-        self.currentFrameNumber, self.animationTime = self.mm_controller.update(dt* self.animationSpeed)
+        self.currentFrameNumber = self.mm_controller.update(dt* self.animationSpeed)
+        
+        self.animationTime += dt* self.animationSpeed
         self.mm_controller.update_target()
         # update gui
         if self.currentFrameNumber > self.getNumberOfFrames():
@@ -67,6 +83,8 @@ class MMControllerComponent(ComponentBase, AnimationController):
             m = np.dot(m, modelMatrix)
             self._sphere.draw(m, viewMatrix, projectionMatrix, lightSources)
         self._line.draw(modelMatrix, viewMatrix, projectionMatrix)
+        self._vel_line.draw(modelMatrix, viewMatrix, projectionMatrix)
+        self._ref_vel_line.draw(modelMatrix, viewMatrix, projectionMatrix)
 
 
     def getNumberOfFrames(self):
@@ -112,17 +130,9 @@ class MMControllerComponent(ComponentBase, AnimationController):
         return dict()
 
     def rotate_dir_vector(self, angle):
-        r = np.radians(angle)
-        s = np.sin(r)
-        c = np.cos(r)
-        self.target_dir = np.array(self.target_dir, float)
-        self.target_dir[0] = c * self.target_dir[0] - s * self.target_dir[2]
-        self.target_dir[2] = s * self.target_dir[0] + c * self.target_dir[2]
-        self.target_dir /= float(np.linalg.norm(self.target_dir))
-        print("rotate", self.target_dir)
+        self.mm_controller.rotate_dir_vector(angle)
 
    
-
     def handle_keyboard_input(self, key):
         print("handle", key)
         if key == b"a":
@@ -131,35 +141,42 @@ class MMControllerComponent(ComponentBase, AnimationController):
             self.rotate_dir_vector(10)
         elif key == b"w":
             self.debug_line_len += 1
-            self.debug_line_len = min(self.debug_line_len, self.max_step_length)
+            self.debug_line_len = min(self.debug_line_len, self.mm_controller.max_step_length)
         elif key == b"s":
             self.debug_line_len -= 1
             self.debug_line_len = max(self.debug_line_len, 0)
+        elif key == b"v":
+            self.toggle_velocity()
+
     def get_pose(self):
         return self.mm_controller.get_pose()
 
+    def toggle_velocity(self):
+        self.mm_controller.pose.use_velocity = not self.mm_controller.pose.use_velocity
+        print("use_velocity",self.mm_controller.use_velocity)
 
-def load_mm_database(builder, filename):
+
+def load_mm_database(builder, filename, scale=1):
     name = filename.split("/")[-1]
     scene_object = SceneObject()
     scene_object.name = name
-    db = MotionDatabase()
+    db = MMDatabase()
     db.load(filename)
-    animation_controller = MMControllerComponent(scene_object, color=get_random_color())
-    animation_controller.set_data(db)
+    animation_controller = MMControllerVisualization(scene_object, color=get_random_color())
+    animation_controller.set_data(db, scale)
     scene_object.add_component("animation_controller", animation_controller)
     controller = scene_object._components["animation_controller"]
     builder._scene.addAnimationController(scene_object, "animation_controller")
     return scene_object
 
-def load_mm_database_numpy(builder, filename):
+def load_mm_database_numpy(builder, filename, scale=1):
     name = filename.split("/")[-1]
     scene_object = SceneObject()
     scene_object.name = name
-    db = MotionDatabase()
+    db = MMDatabase()
     db.load_from_numpy(filename)
-    animation_controller = MMControllerComponent(scene_object, color=get_random_color())
-    animation_controller.set_data(db)
+    animation_controller = MMControllerVisualization(scene_object, color=get_random_color())
+    animation_controller.set_data(db, scale)
     scene_object.add_component("animation_controller", animation_controller)
     controller = scene_object._components["animation_controller"]
     builder._scene.addAnimationController(scene_object, "animation_controller")

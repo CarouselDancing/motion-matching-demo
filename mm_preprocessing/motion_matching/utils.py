@@ -1,7 +1,7 @@
 
 from pathlib import Path
-import quat
-import bvh
+from . import quat
+from . import bvh
 import numpy as np
 import librosa
 
@@ -29,11 +29,14 @@ def animation_mirror(lrot, lpos, names, parents, left_prefix = "Left", right_pre
 
     mirror_pos = np.array([-1, 1, 1])
     mirror_rot = np.array([[-1, -1, 1], [1, 1, -1], [1, 1, -1]])
+    #mirror_rot = np.array([[-1, -1, 1], [-1, -1, -1], [1, 1, -1]])
 
     grot, gpos = quat.fk(lrot, lpos, parents)
 
     gpos_mirror = mirror_pos * gpos[:,joints_mirror]
     grot_mirror = quat.from_xform(mirror_rot * quat.to_xform(grot[:,joints_mirror]))
+    #gpos_mirror =quat.mul_vec(quat.from_angle_axis(np.pi, [0,1,0]), gpos_mirror)
+    #grot_mirror =quat.mul(quat.from_angle_axis(np.pi, [0,1,0]), grot_mirror)
     
     return quat.ik(grot_mirror, gpos_mirror, parents)
 
@@ -124,3 +127,5 @@ class UHumanBodyBones(IntEnum):
     RightLittleDistal = 53
     UpperChest = 54
     LastBone = 55
+
+

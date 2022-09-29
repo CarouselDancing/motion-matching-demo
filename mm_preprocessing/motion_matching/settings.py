@@ -1,6 +1,6 @@
 import collections
-from utils import UHumanBodyBones
-from mm_features import MMFeature, MMFeatureType
+from .utils import UHumanBodyBones
+from .mm_features import MMFeature, MMFeatureType
 
 
 DEFAULT_FEATURES = [
@@ -162,6 +162,7 @@ def get_cmu_settings():
     settings["sim_rotation_joint_name"] = "root"
     settings["left_prefix"] = "l"
     settings["right_prefix"] = "r"
+    settings["feature_descs"] = DEFAULT_FEATURES
     return settings
 
 
