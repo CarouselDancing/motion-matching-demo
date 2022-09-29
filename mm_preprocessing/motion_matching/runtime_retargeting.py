@@ -12,8 +12,6 @@ class RuntimeRetargeting(ComponentBase):
         self.src_skeleton = None
         self.target_skeleton = target_skeleton
         self.target_controller = target_controller
-        self._target_joints = self.target_skeleton.get_joint_names()
-        self.target_matrices = [np.eye(4) for j in self._target_joints]
 
     def set_animation_src(self, src_skeleton, anim_src):
         self.src_skeleton = src_skeleton
