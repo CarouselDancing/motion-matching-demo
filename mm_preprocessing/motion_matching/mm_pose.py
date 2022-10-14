@@ -67,12 +67,13 @@ class MMPose:
         if self.parents[bone_idx] != -1:
             parent_idx = self.parents[bone_idx]
             #self.fk(parent_idx)
-            parent_m = quaternion_matrix(self.global_rotations[parent_idx])
-            bone_m = quaternion_matrix(self.rotations[bone_idx])
-            global_rot = np.dot(parent_m, bone_m)
-            self.global_positions[bone_idx] = self.global_positions[parent_idx] + np.dot(parent_m[:3, :3], self.positions[bone_idx])
+            parent_q = self.global_rotations[parent_idx]
+            bone_q = self.rotations[bone_idx]
+            global_q = quat.mul(parent_q, bone_q)
+            rotated_pos =quat.mul_vec(parent_q, self.positions[bone_idx])
+            self.global_positions[bone_idx] = self.global_positions[parent_idx] + rotated_pos
             
-            self.global_rotations[bone_idx] = quaternion_from_matrix(global_rot)
+            self.global_rotations[bone_idx] = global_q
 
         else:
             self.global_positions[bone_idx] = self.positions[bone_idx]
