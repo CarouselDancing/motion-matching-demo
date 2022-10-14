@@ -24,6 +24,8 @@ class MMPose:
         self.ref_position = np.array([0,0,0], dtype=np.float32)
         self.ref_rotation = np.array([1,0,0,0], dtype=np.float32)
         self.frame_idx = 0
+        self.update_timer = 0
+        self.force_search_timer =0
 
     @classmethod
     def from_db(cls, db, frame_idx, scale=1, offset=None):
@@ -85,6 +87,7 @@ class MMPose:
         self.sim_rotation = np.array([1,0,0,0], dtype=np.float32)
         self.lin_vel = np.array([0,0,0], dtype=np.float32)
         self.ang_vel = np.array([0,0,0], dtype=np.float32)
+        self.update_timer = 0
             
     def get_linear_velocity(self):
         return quat.mul_vec(self.sim_rotation, self.lin_vel)

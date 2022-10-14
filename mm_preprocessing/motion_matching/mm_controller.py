@@ -12,17 +12,17 @@ class MMController():
         self.mm_database = None
         self.pose = None
         self.n_frames = 0
-        self.frame_time = 1/30
 
         self.target_skeleton = None
         self.retargeting = None
         self.target_controller = None
-        self.update_timer = 0
+        self.frame_time = 1/30
+        self.n_frames=0
 
     def set_data(self, mm_database, scale=1.0):
         self.mm_database = mm_database
         self.pose = MMPose.from_db(mm_database, 0, scale, self.offset)
-        self.frame_time = 1.0/self.mm_database.fps
+        self.frame_time = 1.0/mm_database.fps
         self.n_frames = len(mm_database.bone_positions)
 
 
@@ -36,27 +36,31 @@ class MMController():
         self.retargeting = Retargeting(src_skeleton, self.target_skeleton, joint_map)
    
     def update(self, dt):
-        if self.force_search_timer > 0:
-            self.force_search_timer -= dt
-        #print(self.force_search_timer)
-        if self.pose.frame_idx >= self.n_frames or self.force_search_timer <= 0:
-            self.find_transition(self.pose)
-            self.force_search_timer = self.search_interval
-        if self.update_timer >= 0:
-            self.update_timer -= dt
-        if self.update_timer <=0:
-            self.pose.frame_idx +=1
-        if self.pose.frame_idx >= self.n_frames:
-            self.pose.frame_idx =0
-        self.pose.set_pose(self.mm_database, self.pose.frame_idx)
-        self.pose.update_sim(dt)
+        self.find_transition(self.pose, dt)
+        self.step_frame(self.pose, dt, self.mm_database)
         return self.pose.frame_idx
+        
+    def find_transition(self, pose, dt):
+        if pose.force_search_timer > 0:
+            pose.force_search_timer -= dt
+        if pose.frame_idx >= self.n_frames or pose.force_search_timer <= 0:
+            next_frame_idx = min(pose.frame_idx + 1, self.n_frames-1)
+            pose.frame_idx = self.mm_database.find_transition(pose, next_frame_idx)
+            if pose.frame_idx > self.n_frames:
+                pose.frame_idx = 0
+            pose.force_search_timer = self.search_interval
 
-    def find_transition(self, pose):
-        next_frame_idx = min(pose.frame_idx + 1, self.n_frames-1)
-        pose.frame_idx = self.mm_database.find_transition(pose, next_frame_idx)
+
+    def step_frame(self, pose, dt, mm_database):
+        if pose.update_timer >= 0:
+            pose.update_timer -= dt
+        if pose.update_timer <=0:
+            pose.frame_idx +=1
+            pose.update_timer = self.frame_time        
         if pose.frame_idx > self.n_frames:
             pose.frame_idx = 0
+        pose.set_pose(mm_database, pose.frame_idx)
+        pose.update_sim(dt)
 
     def get_pose(self):
         self.pose.update_fk_buffer()
@@ -96,7 +100,6 @@ class MMController():
         return target_frame
 
     def reset(self, frame_idx):
-        self.update_timer = 0.0
         self.pose.reset(frame_idx)
 
     def get_phase(self):
