@@ -97,7 +97,7 @@ class PreprocessingPipeline:
         self.left_prefix = kwargs.get("left_prefix", "Left")
         self.right_prefix = kwargs.get("right_prefix", "Right")
         self.grounding_offset = None
-        self.ground_motion = kwargs.get("ground_motion", "True")
+        self.ground_motion = kwargs.get("ground_motion", True)
         self.sampling_rate = kwargs.get("sampling_rate", 1600)
         self.n_mels = kwargs.get("n_mels", 17)
         self.ignore_list = kwargs.get("ignore_list", [])
