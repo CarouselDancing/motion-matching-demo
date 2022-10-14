@@ -202,23 +202,20 @@ class PreprocessingPipeline:
         return positions, rotations, bone_names, bone_parents
 
 
-    def compute_velocites(self, positions, rotations):
-        
-        """ Compute Velocities """
-        
+    def compute_velocities(self, positions, rotations):
         # Compute velocities via central difference
         velocities = np.empty_like(positions)
         velocities[1:-1] = (
-            0.5 * (positions[2:  ] - positions[1:-1]) * self.fps +
-            0.5 * (positions[1:-1] - positions[ :-2]) * self.fps)
+            0.5 * (positions[2:  ] - positions[1:-1]) +
+            0.5 * (positions[1:-1] - positions[ :-2]) )
         velocities[ 0] = velocities[ 1] - (velocities[ 3] - velocities[ 2])
         velocities[-1] = velocities[-2] + (velocities[-2] - velocities[-3])
         
         # Same for angular velocities
         angular_velocities = np.zeros_like(positions)
         angular_velocities[1:-1] = (
-            0.5 * quat.to_scaled_angle_axis(quat.abs(quat.mul_inv(rotations[2:  ], rotations[1:-1]))) * self.fps +
-            0.5 * quat.to_scaled_angle_axis(quat.abs(quat.mul_inv(rotations[1:-1], rotations[ :-2]))) * self.fps)
+            0.5 * quat.to_scaled_angle_axis(quat.abs(quat.mul_inv(rotations[2:  ], rotations[1:-1])))  +
+            0.5 * quat.to_scaled_angle_axis(quat.abs(quat.mul_inv(rotations[1:-1], rotations[ :-2]))))
         angular_velocities[ 0] = angular_velocities[ 1] - (angular_velocities[ 3] - angular_velocities[ 2])
         angular_velocities[-1] = angular_velocities[-2] + (angular_velocities[-2] - angular_velocities[-3])
         return velocities, angular_velocities
