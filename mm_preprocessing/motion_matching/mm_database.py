@@ -6,6 +6,13 @@ from transformations import quaternion_matrix, quaternion_inverse
 from .mm_features import MMFeature, MMFeatureType, calculate_features, get_feature_weigth_vector, calculate_feature_mean_and_scale
 from .utils import UHumanBodyBones
 
+def convert_ogl_to_unity_cs(db):
+    db.bone_positions[:, : ,0 ] *= -1
+    db.bone_rotations[:, : ,0] *= -1
+    db.bone_rotations[:, : ,1] *= -1 
+    db.bone_velocities[:, : ,0 ] *= -1
+    db.bone_angular_velocities[:, : ,0 ] *= -1
+        
 
 class MMDatabase:
     fps = 60
@@ -454,7 +461,7 @@ class MMDatabase:
     def calculate_features(self, feature_descs, convert_coodinate_system=False, normalize=True):
         feature_descs = self.map_bones_to_indices(feature_descs)
         if convert_coodinate_system:
-            self.convert_ogl_to_unity_cs()
+            convert_ogl_to_unity_cs(self)
         self.feature_descs = feature_descs
         self.features = calculate_features(self, feature_descs)
         feature_weight_vector = get_feature_weigth_vector(feature_descs)
@@ -462,13 +469,6 @@ class MMDatabase:
         if normalize:
             self.features = (self.features-self.features_mean) / self.features_scale
         print("finished calculating features")
-
-    def convert_ogl_to_unity_cs(self):
-        self.bone_positions[:, : ,0 ] *= -1
-        self.bone_rotations[:, : ,0] *= -1
-        self.bone_rotations[:, : ,1] *= -1 
-        self.bone_velocities[:, : ,0 ] *= -1
-        self.bone_angular_velocities[:, : ,0 ] *= -1
 
     
     def map_bones_to_indices(self, feature_descs):
@@ -491,10 +491,6 @@ class MMDatabase:
         _, neighbors = tree.query(features, k=k+1) # ignore itself
         self.neighbor_matrix = np.array(neighbors, dtype=np.int32)[:,1:]
 
-        print(self.neighbor_matrix.shape)
-        print(self.neighbor_matrix[:10])
-
-    
     def find_transition(self, pose, next_frame_idx):
         best_cost = np.inf
         query = self.features[next_frame_idx]
