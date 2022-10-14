@@ -6,7 +6,7 @@ from motion_matching import quat
 from transformations import quaternion_from_matrix
 from anim_utils.animation_data import MotionVector
 from anim_utils.animation_data.skeleton import Skeleton
-from anim_utils.animation_data.skeleton_builder import SkeletonBuilder, SkeletonRootNode, SkeletonJointNode, SkeletonEndSiteNode, create_identity_frame
+from anim_utils.animation_data.skeleton_builder import SkeletonBuilder, SkeletonRootNode, SkeletonJointNode, SkeletonEndSiteNode
 import scipy.ndimage.filters as filters
 
 
@@ -59,14 +59,7 @@ def load_skeleton_from_mjcf(file_path, frame_time=1.0/30, convert_cs=False):
     body_node = worldbody.findall('body')[0]
     add_joint_for_body(body_node, None)
     skeleton.animated_joints = fk_joint_order
-    skeleton.max_level = skeleton._get_max_level()
-    skeleton._set_joint_weights()
-    skeleton.parent_dict = skeleton._get_parent_dict()
-    skeleton._chain_names = skeleton._generate_chain_names()
-    skeleton.aligning_root_node = skeleton.root
-    skeleton.reference_frame = SkeletonBuilder.get_reference_frame(skeleton.animated_joints)
-    skeleton.reference_frame_length = len(skeleton.reference_frame)
-    create_identity_frame(skeleton)
+    SkeletonBuilder.set_meta_info(skeleton)
     return skeleton
 
 
@@ -116,14 +109,7 @@ def skeleton_from_poselib(data, scale=1, convert_cs=False, frame_time=1.0/30):
     for i in range(len(fk_joint_order)):
         add_joint_for_body(i)
     skeleton.animated_joints = fk_joint_order
-    skeleton.max_level = skeleton._get_max_level()
-    skeleton._set_joint_weights()
-    skeleton.parent_dict = skeleton._get_parent_dict()
-    skeleton._chain_names = skeleton._generate_chain_names()
-    skeleton.aligning_root_node = skeleton.root
-    skeleton.reference_frame = SkeletonBuilder.get_reference_frame(skeleton.animated_joints)
-    skeleton.reference_frame_length = len(skeleton.reference_frame)
-    create_identity_frame(skeleton)
+    SkeletonBuilder.set_meta_info(skeleton)
     return skeleton
 
 def mv_from_poselib_file(filename, scale=1, convert_cs=False, frame_time=1/30):
@@ -263,7 +249,6 @@ def compute_velocities_poselib(positions, rotations, time_delta):
     angular_velocities = np.zeros_like(positions)
     quat_delta = quat.mul_inv(rotations[ 1:], rotations[ :-1])
     angular_velocities[:-1] = quat.to_scaled_angle_axis(quat_delta)
-    print(angular_velocities.shape)
     angular_velocities = filters.gaussian_filter1d(angular_velocities, 2, axis=-3, mode="nearest") / time_delta
     return velocities, angular_velocities
 
