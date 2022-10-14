@@ -451,7 +451,7 @@ class MMDatabase:
     def calculate_features(self, feature_descs, convert_coodinate_system=False, normalize=True):
         feature_descs = self.map_bones_to_indices(feature_descs)
         if convert_coodinate_system:
-            self.flip_coordinate_system_axis()
+            self.convert_ogl_to_unity_cs()
         self.feature_descs = feature_descs
         self.features = calculate_features(self, feature_descs)
         feature_weight_vector = get_feature_weigth_vector(feature_descs)
@@ -460,7 +460,7 @@ class MMDatabase:
             self.features = (self.features-self.features_mean) / self.features_scale
         print("finished calculating features")
 
-    def flip_coordinate_system_axis(self):
+    def convert_ogl_to_unity_cs(self):
         self.bone_positions[:, : ,0 ] *= -1
         self.bone_rotations[:, : ,0] *= -1
         self.bone_rotations[:, : ,1] *= -1 
