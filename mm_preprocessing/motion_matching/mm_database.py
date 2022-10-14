@@ -1,5 +1,6 @@
 import numpy as np
 import struct
+from . import quat
 from sklearn.neighbors import KDTree
 from transformations import quaternion_matrix, quaternion_inverse
 from .mm_features import MMFeature, MMFeatureType, calculate_features, get_feature_weigth_vector, calculate_feature_mean_and_scale
@@ -421,31 +422,33 @@ class MMDatabase:
     def fk(self, frame_idx, bone_idx):
         if self.bone_parents[bone_idx] != -1:
             parent_idx = self.bone_parents[bone_idx]
-            parent_pos, parent_rot = self.fk(frame_idx, parent_idx)
-            bone_m = self.get_bone_rotation_matrix(frame_idx, bone_idx)
-            global_pos = parent_pos+ np.dot(parent_rot, self.bone_positions[frame_idx, bone_idx])
-            global_rot = np.dot(parent_rot, bone_m)
-            return global_pos, global_rot
+            parent_pos, parent_q = self.fk(frame_idx, parent_idx)
+            bone_q = self.bone_rotations[frame_idx, bone_idx]
+            global_pos = parent_pos+ quat.mul_vec(parent_q, self.bone_positions[frame_idx, bone_idx])
+            global_q = quat.mul(parent_q, bone_q)
+            return global_pos, global_q
 
         else:
             return self.bone_positions[frame_idx, bone_idx], self.get_bone_rotation_matrix(frame_idx, bone_idx)
 
     def fk_velocity(self, frame_idx, bone_idx):
+        """ divides velocity by 1/fps """
         if self.bone_parents[bone_idx] != -1:
             parent_idx = self.bone_parents[bone_idx]
-            parent_pos, parent_lv, parent_rot, parent_av = self.fk_velocity(frame_idx, parent_idx)
-            bone_m = self.get_bone_rotation_matrix(frame_idx, bone_idx) #quaternion_matrix(self.bone_rotations[frame_idx, bone_idx])[:3, :3]
-            global_pos = parent_pos+ np.dot(parent_rot, self.bone_positions[frame_idx, bone_idx])
-            global_vel = parent_lv + np.dot(parent_rot, self.bone_velocities[frame_idx, bone_idx]) + np.cross(parent_av, np.dot(parent_rot, self.bone_positions[frame_idx, bone_idx]))
-            global_rot = np.dot(parent_rot, bone_m)
-            global_av = np.dot(parent_rot, (self.bone_angular_velocities[frame_idx, bone_idx] + parent_av))
-            return global_pos, global_vel, global_rot, global_av
+            parent_pos, parent_lv, parent_q, parent_av = self.fk_velocity(frame_idx, parent_idx)
+            bone_q = self.bone_rotations[frame_idx, bone_idx]
+            global_pos = parent_pos+ quat.mul_vec(parent_q, self.bone_positions[frame_idx, bone_idx])
+            global_vel = parent_lv + quat.mul_vec(parent_q, self.bone_velocities[frame_idx, bone_idx]) + np.cross(parent_av, quat.mul_vec(parent_q, self.bone_positions[frame_idx, bone_idx]))
+            global_q = quat.mul(parent_q, bone_q)
+            global_av =quat.mul_vec(parent_q, (self.bone_angular_velocities[frame_idx, bone_idx] + parent_av))
+            return global_pos, global_vel, global_q, global_av
 
         else:
+            dt = 1/self.fps
             return self.bone_positions[frame_idx, bone_idx], \
-                self.bone_velocities[frame_idx, bone_idx], \
-                self.get_bone_rotation_matrix(frame_idx, bone_idx), \
-                self.bone_angular_velocities[frame_idx, bone_idx]
+                self.bone_velocities[frame_idx, bone_idx]/dt, \
+                self.bone_rotations[frame_idx, bone_idx], \
+                self.bone_angular_velocities[frame_idx, bone_idx]/dt
 
 
     def calculate_features(self, feature_descs, convert_coodinate_system=False, normalize=True):
