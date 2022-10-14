@@ -2,7 +2,9 @@
 import numpy as np
 from PySignal import Signal
 from .mm_database import MMDatabase
+from .mm_database_binary_io import MMDatabaseBinaryIO
 from .mm_controller import MMController
+from .mm_batch_controller import MMBatchController
 from vis_utils.scene.scene_object_builder import SceneObject, SceneObjectBuilder
 from vis_utils.scene.components import ComponentBase
 from vis_utils.animation.animation_controller import AnimationController
@@ -10,13 +12,16 @@ from vis_utils.graphics.renderer import SphereRenderer
 from vis_utils.graphics.renderer.lines import DebugLineRenderer
 from vis_utils.graphics.utils import get_translation_matrix
 from vis_utils.scene.utils import get_random_color
+from transformations import quaternion_matrix
+import torch
+
 DEFAULT_COLOR = [0, 0, 1]
 
 
 class MMControllerVisualization(ComponentBase, AnimationController):
     updated_animation_frame = Signal()
     reached_end_of_animation = Signal()
-    def __init__(self, scene_object, color=DEFAULT_COLOR, visualize=True, vis_scale=0.1):
+    def __init__(self, scene_object, color=DEFAULT_COLOR, visualize=True, vis_scale=0.1, use_batch=False):
         ComponentBase.__init__(self, scene_object)
         AnimationController.__init__(self)        
         self.visualize = visualize
@@ -29,7 +34,14 @@ class MMControllerVisualization(ComponentBase, AnimationController):
             self._vel_line = DebugLineRenderer(a, b, [1, 0, 0])
             self._ref_vel_line = DebugLineRenderer(a, b, [0, 0,1])
         self.debug_line_len = 5
-        self.mm_controller = MMController()
+        if use_batch:
+            self.mm_controller = MMBatchController(10, [10,0,10])
+        else:
+            self.mm_controller = MMController()
+        self.use_batch = use_batch
+        self.enable_velocity_visualization = True
+        self.velocity_scale = 1
+        self.figure_c = None
 
     def toggle_animation_loop(self):
         self.loopAnimation = not self.loopAnimation
@@ -59,6 +71,7 @@ class MMControllerVisualization(ComponentBase, AnimationController):
         return
 
     def update(self, dt):
+        self.velocity_scale  = dt
         self.update_debug_vis()
         if not self.isLoadedCorrectly() or not self.playAnimation:
             return
@@ -72,19 +85,44 @@ class MMControllerVisualization(ComponentBase, AnimationController):
         else:
             self.updated_animation_frame.emit(self.currentFrameNumber)
 
-    def draw(self, modelMatrix, viewMatrix, projectionMatrix, lightSources):
+    def draw(self, model, view, projection, lights):
         if self._sphere is None:
                 return
-        if self.currentFrameNumber < 0 or self.currentFrameNumber >= self.getNumberOfFrames():
-            return
+        if self.use_batch:
+            for pose in self.mm_controller.env_poses:
+                self.draw_pose(pose, model, view, projection, lights)
+        else:
+            self.draw_pose(self.mm_controller.pose,  model, view, projection, lights)
+        self._line.draw(model, view, projection)
+        self._vel_line.draw(model, view, projection)
+        self._ref_vel_line.draw(model, view, projection)
+        if self.enable_velocity_visualization:
+            self.draw_velocity(model, view, projection)
+            if self.figure_c is not None:
+                self.draw_figure_velocity(model, view, projection)
 
-        for position in self.mm_controller.pose.global_positions:
-            m = get_translation_matrix(position[:3])
-            m = np.dot(m, modelMatrix)
-            self._sphere.draw(m, viewMatrix, projectionMatrix, lightSources)
-        self._line.draw(modelMatrix, viewMatrix, projectionMatrix)
-        self._vel_line.draw(modelMatrix, viewMatrix, projectionMatrix)
-        self._ref_vel_line.draw(modelMatrix, viewMatrix, projectionMatrix)
+    def draw_pose(self, pose, m, v, p, lights):#
+        for position in pose.global_positions:
+            tm = get_translation_matrix(position[:3])
+            self._sphere.draw(np.dot(tm, m), v, p, lights)
+        return
+
+    def draw_velocity(self, m, v, p):
+        root_m = quaternion_matrix(self.mm_controller.pose.sim_rotation)[:3,:3]
+        frame = self.mm_controller.mm_database.get_relative_bone_velocities_frame(self.currentFrameNumber)
+        for i, position in  enumerate(self.mm_controller.pose.global_positions):
+            lv = frame[i]
+            lv = np.dot(root_m, lv)
+            #print(self.mm_controller.mm_database.bone_names[i], lv)
+            self._ref_vel_line.set_line(position, position-lv*self.velocity_scale)
+            self._ref_vel_line.draw(m, v, p)
+
+    def draw_figure_velocity(self, m, v, p):
+        for b in self.figure_c.target_figure.bodies:
+            position = np.array(self.figure_c.target_figure.bodies[b].get_position())
+            lv = np.array(self.figure_c.target_figure.bodies[b].get_linear_velocity())
+            self._vel_line.set_line(position, position-lv*self.velocity_scale)
+            self._vel_line.draw(m, v, p)
 
 
     def getNumberOfFrames(self):
@@ -156,26 +194,25 @@ class MMControllerVisualization(ComponentBase, AnimationController):
         print("use_velocity",self.mm_controller.use_velocity)
 
 
-def load_mm_database(builder, filename, scale=1):
+def load_mm_database(builder, filename, scale=1, use_batch=False):
     name = filename.split("/")[-1]
     scene_object = SceneObject()
     scene_object.name = name
-    db = MMDatabase()
-    db.load(filename)
-    animation_controller = MMControllerVisualization(scene_object, color=get_random_color())
+    db = MMDatabaseBinaryIO.load(filename)
+    animation_controller = MMControllerVisualization(scene_object, color=get_random_color(), use_batch=use_batch)
     animation_controller.set_data(db, scale)
     scene_object.add_component("animation_controller", animation_controller)
     controller = scene_object._components["animation_controller"]
     builder._scene.addAnimationController(scene_object, "animation_controller")
     return scene_object
 
-def load_mm_database_numpy(builder, filename, scale=1):
+def load_mm_database_numpy(builder, filename, scale=1, use_batch=False):
     name = filename.split("/")[-1]
     scene_object = SceneObject()
     scene_object.name = name
     db = MMDatabase()
     db.load_from_numpy(filename)
-    animation_controller = MMControllerVisualization(scene_object, color=get_random_color())
+    animation_controller = MMControllerVisualization(scene_object, color=get_random_color(), use_batch=use_batch)
     animation_controller.set_data(db, scale)
     scene_object.add_component("animation_controller", animation_controller)
     controller = scene_object._components["animation_controller"]
@@ -183,5 +220,6 @@ def load_mm_database_numpy(builder, filename, scale=1):
     return scene_object
     
 
+    
 SceneObjectBuilder.register_file_handler("bin.txt", load_mm_database)
 SceneObjectBuilder.register_file_handler("npz.txt", load_mm_database_numpy)
