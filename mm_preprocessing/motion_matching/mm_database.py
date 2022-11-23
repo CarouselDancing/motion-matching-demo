@@ -343,7 +343,7 @@ class MMDatabase:
             return global_pos, global_q
 
         else:
-            return self.bone_positions[frame_idx, bone_idx], self.get_bone_rotation_matrix(frame_idx, bone_idx)
+            return self.bone_positions[frame_idx, bone_idx], self.bone_rotations[frame_idx, bone_idx]
 
     def fk_velocity(self, frame_idx, bone_idx):
         """ divides velocity by 1/fps """

@@ -5,11 +5,11 @@ import argparse
 from motion_matching.mm_database import MMDatabase
 from motion_matching.mm_database_binary_io import MMDatabaseBinaryIO
 from motion_matching.preprocessing_pipeline import PreprocessingPipeline, load_ignore_list
-from motion_matching.settings import SETTINGS
+from motion_matching.settings import SETTINGS, DEFAULT_FEATURES
 
 
 
-def main(**kwargs):
+def create_db(feature_descs=DEFAULT_FEATURES, **kwargs):
     out_filename= kwargs["out_filename"]
     motion_path= kwargs["motion_path"]
     n_max_files = kwargs["n_max_files"]
@@ -21,25 +21,30 @@ def main(**kwargs):
         kwargs["ignore_list"] = load_ignore_list(kwargs["ignore_list_filename"])
     kwargs.update(SETTINGS[skeleton_type])
     pipeline = PreprocessingPipeline(**kwargs)
-    if not kwargs["evaluate"]:
-        db = pipeline.create_db(motion_path, n_max_files)
-        db.concatenate_data()
-        if "feature_descs" in kwargs:
-            db.calculate_features(kwargs["feature_descs"], convert_coordinate_system=convert_coordinate_system, normalize=False)
-            db.calculate_neighbors(normalize=True)
-        if file_format == "npy":
-            db.write_to_numpy(out_filename, False)
-        else:
-            MMDatabaseBinaryIO.write(db, out_filename)
+    db = pipeline.create_db(motion_path, n_max_files)
+    db.concatenate_data()
+    if feature_descs is not None:
+        print("create features")
+        db.calculate_features(feature_descs, convert_coordinate_system=convert_coordinate_system, normalize=False)
+        db.calculate_neighbors(normalize=True)
 
+    if file_format == "npy":
+        db.write_to_numpy(out_filename, False)
+    else:
+        MMDatabaseBinaryIO.write(db, out_filename)
+
+    load_db(**kwargs)
+
+
+def load_db(**kwargs):
+    file_format = kwargs["file_format"]
+    out_filename= kwargs["out_filename"]
     if file_format == "npy":
         db = MMDatabase()
         db.load_from_numpy(out_filename)
     else:
         db = MMDatabaseBinaryIO.load(out_filename)
-        db.print_shape()
-
-    
+    db.print_shape()
 
 if __name__ == "__main__":
     data_dir = r"D:\Research\Carousel\data"
@@ -52,12 +57,13 @@ if __name__ == "__main__":
     parser.add_argument("--ignore_list_filename", type=str, default=None)
     parser.add_argument("--out_filename", type=str, default=out_filename)
     parser.add_argument('--evaluate', "-e", default=False, dest='evaluate', action='store_true')
-    parser.add_argument('--n_max_files', type=int, default=20)
-    parser.add_argument('--skeleton_type', type=str, default="raw")
+    parser.add_argument('--n_max_files', type=int, default=120)
+    parser.add_argument('--skeleton_type', type=str, default=skeleton_type)
     parser.add_argument('--file_format', type=str, default="npy")
     parser.add_argument('--convert_cs', type=bool, default=False)
     args = parser.parse_args()
-    main(**vars(args))
+    args = vars(args)
+    create_db(**args)
     
 
 

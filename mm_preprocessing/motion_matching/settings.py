@@ -88,7 +88,6 @@ def get_captury_settings():
     settings["sim_rotation_joint_name"] = "Hips"
     settings["left_prefix"] = "Left"
     settings["right_prefix"] = "Right"
-    settings["feature_descs"] = DEFAULT_FEATURES
     return settings
 
 
@@ -114,7 +113,6 @@ def get_aist_settings():
     settings["sim_rotation_joint_name"] = "root"
     settings["left_prefix"] = "l"
     settings["right_prefix"] = "r"
-    settings["feature_descs"] = DEFAULT_FEATURES
     return settings
 
 
@@ -162,23 +160,96 @@ def get_cmu_settings():
     settings["sim_rotation_joint_name"] = "root"
     settings["left_prefix"] = "l"
     settings["right_prefix"] = "r"
-    settings["feature_descs"] = DEFAULT_FEATURES
     return settings
 
 
-def add_feature_descs(settings):
-    settings["feature_descs"] = DEFAULT_FEATURES
+def get_figure_settings():
+    settings = dict()
+    joint_map = collections.OrderedDict({"Pelvis": UHumanBodyBones.Hips,
+    
+                   "left_hip": UHumanBodyBones.LeftUpperLeg,
+                    "left_knee": UHumanBodyBones.LeftLowerLeg,
+                     "left_ankle": UHumanBodyBones.LeftFoot,
+
+                    "right_hip": UHumanBodyBones.RightUpperLeg,
+                     "right_knee": UHumanBodyBones.RightLowerLeg, 
+                     "right_ankle": UHumanBodyBones.RightFoot,
+
+                    "spine" : UHumanBodyBones.Spine, 
+                    "spine_1": UHumanBodyBones.Chest, 
+
+
+                      "left_clavicle": UHumanBodyBones.LeftShoulder, 
+                   "left_shoulder": UHumanBodyBones.LeftUpperArm,
+                    "left_elbow": UHumanBodyBones.LeftLowerArm, 
+
+                    "right_clavicle": UHumanBodyBones.RightShoulder,
+                     "right_shoulder": UHumanBodyBones.RightUpperArm,
+                   "right_elbow": UHumanBodyBones.RightLowerArm,
+                   
+                    })
+    
+    settings["scale"] = 0.06
+    settings["scale"] = 0.6
+    settings["scale"] = 0.15
+    settings["scale"] = 0.13
+    settings["scale"] = 1
+    settings["toes"] = ["right_ankle", "left_ankle"]
+    settings["joint_names"] =["Simulation"]+ list(joint_map.keys())
+    settings["bone_map"] = [UHumanBodyBones.LastBone]+list(joint_map.values())
+    settings["sim_position_joint_name"] = "Pelvis"
+    settings["sim_rotation_joint_name"] = "Pelvis"
+    settings["left_prefix"] = "left"
+    settings["right_prefix"] = "right"
+    settings["ground_motion"] = False
     return settings
-    for i in range(len( settings["feature_descs"])):
-      bone = settings["feature_descs"][i].bone
-      bone_idx = settings["bone_map"].index(bone)
-      #print(bone, bone_idx)
-      settings["feature_descs"][i].bone_idx = bone_idx
+
+
+def get_amp_settings():
+    settings = dict()
+    joint_map = collections.OrderedDict({"pelvis": UHumanBodyBones.Hips,
+    
+                    "torso" : UHumanBodyBones.Spine, 
+                    "head": UHumanBodyBones.Head, 
+
+
+                   "right_upper_arm": UHumanBodyBones.RightUpperArm,
+                    "right_lower_arm": UHumanBodyBones.RightLowerArm, 
+                    "right_hand": UHumanBodyBones.RightHand, 
+
+                   "left_upper_arm": UHumanBodyBones.LeftUpperArm,
+                    "left_lower_arm": UHumanBodyBones.LeftLowerArm, 
+                    "left_hand": UHumanBodyBones.LeftHand, 
+
+                    "right_thigh": UHumanBodyBones.RightUpperLeg,
+                     "right_shin": UHumanBodyBones.RightLowerLeg, 
+                     "right_foot": UHumanBodyBones.RightFoot,
+
+                   "left_thigh": UHumanBodyBones.LeftUpperLeg,
+                    "left_shin": UHumanBodyBones.LeftLowerLeg,
+                     "left_foot": UHumanBodyBones.LeftFoot,
+
+
+                   
+                    })
+    
+    settings["scale"] = 1
+    settings["toes"] = ["right_foot", "left_foot"]
+    settings["joint_names"] =["Simulation"]+ list(joint_map.keys())
+    settings["bone_map"] = [UHumanBodyBones.LastBone]+list(joint_map.values())
+    settings["sim_position_joint_name"] = "pelvis"
+    settings["sim_rotation_joint_name"] = "torso"
+    settings["left_prefix"] = "left"
+    settings["right_prefix"] = "right"
+    settings["ground_motion"] = False
     return settings
+
 
 SETTINGS = dict()
-SETTINGS["raw"] = add_feature_descs(get_raw_settings())
-SETTINGS["captury"] = add_feature_descs(get_captury_settings())
-SETTINGS["aist"] = add_feature_descs(get_aist_settings())
-SETTINGS["cmu"] = add_feature_descs(get_cmu_settings())
+SETTINGS["raw"] = get_raw_settings()
+SETTINGS["captury"] = get_captury_settings()
+SETTINGS["aist"] = get_aist_settings()
+SETTINGS["cmu"] = get_cmu_settings()
+SETTINGS["figure"] = get_figure_settings()
+SETTINGS["amp_humanoid"] = get_amp_settings()
 
