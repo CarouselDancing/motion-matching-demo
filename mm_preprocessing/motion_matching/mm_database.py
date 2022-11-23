@@ -6,12 +6,13 @@ from .mm_features import MMFeature, MMFeatureType, calculate_features, get_featu
 from .utils import UHumanBodyBones, concat_str_list
 
 
+
 def convert_ogl_to_unity_cs(db):
     db.bone_positions[:, : ,0 ] *= -1
     db.bone_rotations[:, : ,0] *= -1
-    db.bone_rotations[:, : ,1] *= -1 
+    db.bone_rotations[:, : ,1] *= -1
     db.bone_velocities[:, : ,0 ] *= -1
-    db.bone_angular_velocities[:, : ,0 ] *= -1
+    db.bone_angular_velocities[:, : ,0 ] *= -1       
         
 def convert_ogl_to_omni_cs(db):
     pos_copy = np.array(db.bone_positions)
@@ -279,7 +280,7 @@ class MMDatabase:
     def get_position_trajectory(self, frame_idx, t0, t1, t2, bone_idx):
         pos_trajectory = np.zeros(6)
         frame_pos, frame_rot = self.fk(frame_idx, bone_idx)
-        inv_frame_rot = quat.inv(frame_rot)
+        inv_frame_rot = np.linalg.inv(frame_rot)
         frame_pos = self.bone_positions[frame_idx, bone_idx]
         #t0_pos, _ = self.fk(t0, bone_idx)
         #t1_pos, _ = self.fk(t1, bone_idx)
@@ -287,9 +288,9 @@ class MMDatabase:
         t0_pos = self.bone_positions[t0, bone_idx]
         t1_pos = self.bone_positions[t1, bone_idx]
         t2_pos = self.bone_positions[t2, bone_idx]
-        delta0 = quat.mul_vec(inv_frame_rot, t0_pos- frame_pos)
-        delta1 = quat.mul_vec(inv_frame_rot, t1_pos- frame_pos)
-        delta2 = quat.mul_vec(inv_frame_rot, t2_pos- frame_pos)
+        delta0 = np.dot(inv_frame_rot, t0_pos- frame_pos)
+        delta1 = np.dot(inv_frame_rot, t1_pos- frame_pos)
+        delta2 = np.dot(inv_frame_rot, t2_pos- frame_pos)
         pos_trajectory[0] = delta0[0]
         pos_trajectory[1] = delta0[2]
         pos_trajectory[2] = delta1[0]
@@ -311,16 +312,16 @@ class MMDatabase:
     def get_direction_trajectory(self, frame_idx, t0, t1, t2, bone_idx):
         pos_trajectory = np.zeros(6)
         frame_pos, frame_rot = self.fk(frame_idx, bone_idx)
-        inv_frame_rot = quat.inv(frame_rot)
+        inv_frame_rot = np.linalg.inv(frame_rot)
         #_, t0_rot = self.fk(t0, bone_idx)
         #_, t1_rot = self.fk(t1, bone_idx)
         #_, t2_rot = self.fk(t2, bone_idx)
-        t0_rot = self.bone_rotations[t0, bone_idx]
-        t1_rot = self.bone_rotations[t1, bone_idx]
-        t2_rot = self.bone_rotations[t2, bone_idx]
-        delta0 = quat.mul_vec(inv_frame_rot, quat.mul_vec(t0_rot, [0,0,1]))
-        delta1 = quat.mul_vec(inv_frame_rot, quat.mul_vec(t1_rot, [0,0,1]))
-        delta2 = quat.mul_vec(inv_frame_rot, quat.mul_vec(t2_rot, [0,0,1]))
+        t0_rot = self.get_bone_rotation_matrix(t0, bone_idx)
+        t1_rot = self.get_bone_rotation_matrix(t1, bone_idx)
+        t2_rot = self.get_bone_rotation_matrix(t2, bone_idx)
+        delta0 = np.dot(inv_frame_rot, np.dot(t0_rot, [0,0,1]))
+        delta1 = np.dot(inv_frame_rot, np.dot(t1_rot, [0,0,1]))
+        delta2 = np.dot(inv_frame_rot, np.dot(t2_rot, [0,0,1]))
         pos_trajectory[0] = delta0[0]
         pos_trajectory[1] = delta0[2]
         pos_trajectory[2] = delta1[0]
@@ -336,33 +337,31 @@ class MMDatabase:
     def fk(self, frame_idx, bone_idx):
         if self.bone_parents[bone_idx] != -1:
             parent_idx = self.bone_parents[bone_idx]
-            parent_pos, parent_q = self.fk(frame_idx, parent_idx)
-            bone_q = self.bone_rotations[frame_idx, bone_idx]
-            global_pos = parent_pos+ quat.mul_vec(parent_q, self.bone_positions[frame_idx, bone_idx])
-            global_q = quat.mul(parent_q, bone_q)
-            return global_pos, global_q
+            parent_pos, parent_rot = self.fk(frame_idx, parent_idx)
+            bone_m = self.get_bone_rotation_matrix(frame_idx, bone_idx)
+            global_pos = parent_pos+ np.dot(parent_rot, self.bone_positions[frame_idx, bone_idx])
+            global_rot = np.dot(parent_rot, bone_m)
+            return global_pos, global_rot
 
         else:
-            return self.bone_positions[frame_idx, bone_idx], self.bone_rotations[frame_idx, bone_idx]
+            return self.bone_positions[frame_idx, bone_idx], self.get_bone_rotation_matrix(frame_idx, bone_idx)
 
     def fk_velocity(self, frame_idx, bone_idx):
-        """ divides velocity by 1/fps """
         if self.bone_parents[bone_idx] != -1:
             parent_idx = self.bone_parents[bone_idx]
-            parent_pos, parent_lv, parent_q, parent_av = self.fk_velocity(frame_idx, parent_idx)
-            bone_q = self.bone_rotations[frame_idx, bone_idx]
-            global_pos = parent_pos+ quat.mul_vec(parent_q, self.bone_positions[frame_idx, bone_idx])
-            global_vel = parent_lv + quat.mul_vec(parent_q, self.bone_velocities[frame_idx, bone_idx]) + np.cross(parent_av, quat.mul_vec(parent_q, self.bone_positions[frame_idx, bone_idx]))
-            global_q = quat.mul(parent_q, bone_q)
-            global_av =quat.mul_vec(parent_q, (self.bone_angular_velocities[frame_idx, bone_idx] + parent_av))
-            return global_pos, global_vel, global_q, global_av
+            parent_pos, parent_lv, parent_rot, parent_av = self.fk_velocity(frame_idx, parent_idx)
+            bone_m = self.get_bone_rotation_matrix(frame_idx, bone_idx) #quaternion_matrix(self.bone_rotations[frame_idx, bone_idx])[:3, :3]
+            global_pos = parent_pos+ np.dot(parent_rot, self.bone_positions[frame_idx, bone_idx])
+            global_vel = parent_lv + np.dot(parent_rot, self.bone_velocities[frame_idx, bone_idx]) + np.cross(parent_av, np.dot(parent_rot, self.bone_positions[frame_idx, bone_idx]))
+            global_rot = np.dot(parent_rot, bone_m)
+            global_av = np.dot(parent_rot, (self.bone_angular_velocities[frame_idx, bone_idx] + parent_av))
+            return global_pos, global_vel, global_rot, global_av
 
         else:
-            dt = 1/self.fps
             return self.bone_positions[frame_idx, bone_idx], \
-                self.bone_velocities[frame_idx, bone_idx]/dt, \
-                self.bone_rotations[frame_idx, bone_idx], \
-                self.bone_angular_velocities[frame_idx, bone_idx]/dt
+                self.bone_velocities[frame_idx, bone_idx], \
+                self.get_bone_rotation_matrix(frame_idx, bone_idx), \
+                self.bone_angular_velocities[frame_idx, bone_idx]
 
 
     def calculate_features(self, feature_descs, convert_coordinate_system=False, normalize=True):
@@ -377,7 +376,6 @@ class MMDatabase:
             self.features = (self.features-self.features_mean) / self.features_scale
         print("finished calculating features")
 
-    
     def map_bones_to_indices(self, feature_descs):
         for i in range(len(feature_descs)):
             bone =feature_descs[i].bone
@@ -398,6 +396,8 @@ class MMDatabase:
         _, neighbors = tree.query(features, k=k+1) # ignore itself
         self.neighbor_matrix = np.array(neighbors, dtype=np.int32)[:,1:]
 
+
+    
     def find_transition(self, pose, next_frame_idx):
         best_cost = np.inf
         query = self.features[next_frame_idx]
@@ -409,27 +409,18 @@ class MMDatabase:
             if cost < best_cost:
                 next_frame_idx = ni
                 best_cost = cost
-        return next_frame_idx 
+        return next_frame_idx
         
     def get_relative_bone_velocities_frame(self, frame_idx):
         n_bones = len(self.bone_names)
         velocities = np.zeros((n_bones, 3))
         inv_root_m = np.linalg.inv(self.get_bone_rotation_matrix(frame_idx, 0))
         for bone_idx in range(n_bones):
-            p, lv, q, av = self.fk_velocity(frame_idx, bone_idx)
+            p, lv, r, av = self.fk_velocity(frame_idx, bone_idx)
             velocities[bone_idx] = np.dot(inv_root_m, lv)
-        return velocities 
+        return velocities
     
     def get_relative_bone_velocity(self, frame_idx, bone_idx):
         inv_root_m = np.linalg.inv(self.get_bone_rotation_matrix(frame_idx, 0))
-        p, lv, q, av = self.fk_velocity(frame_idx, bone_idx)
+        p, lv, r, av = self.fk_velocity(frame_idx, bone_idx)
         return np.dot(inv_root_m, lv)
-
-    
-    def get_bone_velocities_frame(self, frame_idx):
-        n_bones = len(self.bone_names)
-        velocities = np.zeros((n_bones, 3))
-        for bone_idx in range(n_bones):
-            p, lv, q, av = self.fk_velocity(frame_idx, bone_idx)
-            velocities[bone_idx] = lv
-        return velocities
