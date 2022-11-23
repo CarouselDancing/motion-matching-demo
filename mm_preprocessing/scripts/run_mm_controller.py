@@ -85,4 +85,4 @@ if __name__ == "__main__":
     mesh_filename = None
     default_config.dst_type = "mh_cmu"
     default_config.src_type = "raw"
-    main(mm_filename, src_skeleton, mesh_filename, use_batch=True)
+    main(mm_filename, src_skeleton, mesh_filename, use_batch=False)
