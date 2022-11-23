@@ -1,3 +1,6 @@
 [submodule "mm_demo/Assets/MotionMatching"]
 	path = mm_demo/Assets/MotionMatching
 	url = git@github.com:CarouselDancing/motion-matching.git
+[submodule "mm_preprocessing"]
+	path = mm_preprocessing
+	url = git@github.com:CarouselDancing/motion_matching_preprocessing.git
