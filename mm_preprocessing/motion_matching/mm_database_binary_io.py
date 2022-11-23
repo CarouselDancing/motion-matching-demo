@@ -2,6 +2,7 @@
 import numpy as np
 import struct
 from .mm_database import MMDatabase
+from .utils import concat_str_list
 
 class MMDatabaseBinaryIO:
     @staticmethod
@@ -108,15 +109,8 @@ class MMDatabaseBinaryIO:
                 n_annotations = db.annotation_matrix.shape[1]
                 f.write(struct.pack('II', nframes, n_annotations) + db.annotation_matrix.ravel().tobytes())
 
-    def concat_str_list(string_list):
-        concat_str = ""
-        for key in string_list: 
-            concat_str += key +","
-        concat_str = concat_str[:-1]
-        return concat_str
-
     def save_string_list(string_list, outfile):
-        concat_str = MMDatabaseBinaryIO.concat_str_list(string_list)
+        concat_str = concat_str_list(string_list)
         outfile.write(struct.pack('I', len(concat_str))+str.encode(concat_str, 'utf-8'))
 
 

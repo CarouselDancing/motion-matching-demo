@@ -1,10 +1,9 @@
 import numpy as np
-import struct
 from . import quat
 from sklearn.neighbors import KDTree
 from transformations import quaternion_matrix, quaternion_inverse
 from .mm_features import MMFeature, MMFeatureType, calculate_features, get_feature_weigth_vector, calculate_feature_mean_and_scale
-from .utils import UHumanBodyBones
+from .utils import UHumanBodyBones, concat_str_list
 
 
 def convert_ogl_to_unity_cs(db):
@@ -14,6 +13,25 @@ def convert_ogl_to_unity_cs(db):
     db.bone_velocities[:, : ,0 ] *= -1
     db.bone_angular_velocities[:, : ,0 ] *= -1
         
+def convert_ogl_to_omni_cs(db):
+    pos_copy = np.array(db.bone_positions)
+    rot_copy = np.array(db.bone_rotations)
+    vel_copy = np.array(db.bone_velocities)
+    avel_copy = np.array(db.bone_angular_velocities)
+    db.bone_rotations[:,:,1]= -rot_copy[:,:,1]
+    db.bone_rotations[:,:,3]= -rot_copy[:,:,2]
+    db.bone_rotations[:,:,2]= -rot_copy[:,:,3]
+    
+    db.bone_positions[:,:,2]= pos_copy[:,:,1]
+    db.bone_positions[:,:,1]= pos_copy[:,:,2]
+
+
+    db.bone_velocities[:,:,2]= vel_copy[:,:,1]
+    db.bone_velocities[:,:,1]= vel_copy[:,:,2]
+
+    db.bone_angular_velocities[:,:,2]= avel_copy[:,:,1]
+    db.bone_angular_velocities[:,:,1]= avel_copy[:,:,2]
+
 
 class MMDatabase:
     fps = 60
@@ -122,7 +140,7 @@ class MMDatabase:
         data["range_starts"] = np.array(self.range_starts).astype(np.int32)
         data["range_stops"] = np.array(self.range_stops).astype(np.int32)
         data["contact_states"] = np.array(self.contact_states).astype(np.int32)
-        data["bone_names"] = self.string_list_to_int_list(self.bone_names)#np.array([ord(c) for c in self.concat_str_list(self.bone_names)]).astype(np.int32)
+        data["bone_names"] = self.string_list_to_int_list(self.bone_names)#np.array([ord(c) for c in concat_str_list(self.bone_names)]).astype(np.int32)
         
         data["bone_map"] = np.array(self.bone_map).astype(np.int32)
         print("bone_map", data["bone_names"])
@@ -130,8 +148,8 @@ class MMDatabase:
         if len(self.phase_data) > 0:
             data["phase_data"] = self.phase_data
         if self.annotation_matrix is not None:
-            data["annotation_keys"] = self.string_list_to_int_list(self.annotation_keys)# str.encode(self.concat_str_list(self.annotation_keys), 'utf-8')
-            data["annotation_values"] = self.string_list_to_int_list(self.annotation_values)#str.encode(self.concat_str_list(self.annotation_values), 'utf-8')
+            data["annotation_keys"] = self.string_list_to_int_list(self.annotation_keys)# str.encode(concat_str_list(self.annotation_keys), 'utf-8')
+            data["annotation_values"] = self.string_list_to_int_list(self.annotation_values)#str.encode(concat_str_list(self.annotation_values), 'utf-8')
             data["annotation_matrix"] = self.annotation_matrix
 
         if self.features is not None:
@@ -193,14 +211,13 @@ class MMDatabase:
 
 
     def string_list_to_int_list(self, names):
-        return np.array([ord(c) for c in self.concat_str_list(names)]).astype(np.int32)
+        return np.array([ord(c) for c in concat_str_list(names)]).astype(np.int32)
 
 
     def int_list_to_string_list(self, int_list):
         concat_str =  "".join([chr(c) for c in int_list])
         return concat_str.split(",")
 
-            
     def print_shape(self):
         print("bone_positions",self.bone_positions.shape)
         print("bone_rotations",self.bone_rotations.shape)

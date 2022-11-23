@@ -129,3 +129,10 @@ class UHumanBodyBones(IntEnum):
     LastBone = 55
 
 
+
+def concat_str_list(string_list):
+    concat_str = ""
+    for key in string_list: 
+        concat_str += key +","
+    concat_str = concat_str[:-1]
+    return concat_str
