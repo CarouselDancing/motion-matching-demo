@@ -111,6 +111,7 @@ class PreprocessingPipeline:
         self.annotation_matrix_builder = None
         self.remove_broken_frames = kwargs.get("remove_broken_frames", False)
         self.debug_plot = kwargs.get("debug_plot", False)
+        self.mask_indices_dict = None
 
     def resample_motion(self, positions, rotations, annotations=None, sample_rate=1.8):
         """ Supersample 
@@ -299,21 +300,21 @@ class PreprocessingPipeline:
 
         positions, velocities, rotations, angular_velocities, bone_names, bone_parents, contacts = self.process_motion(positions, rotations, bone_names, bone_parents)
         
-        
-        if self.remove_broken_frames and clip_name in self.mask_indices_dict:
-            mask_indices = np.array(self.mask_indices_dict[clip_name])
-            m_start_indices, m_end_indices = [], []
-            if len(mask_indices) > 0:
-                mask = np.ones(n_original_frames, np.bool)
-                mask[mask_indices] = 0
-                mask = self.resample_data(mask, self.resample_rate).astype(np.bool)
-                positions = positions[mask,:]
-                velocities = velocities[mask,:]
-                rotations = rotations[mask,:]
-                angular_velocities = angular_velocities[mask,:]
-                contacts = contacts[mask,:]
-                if clip_annotation is not None:
-                    clip_annotation = clip_annotation[mask,:]
+        if self.mask_indices_dict is not None:
+            if self.remove_broken_frames and clip_name in self.mask_indices_dict:
+                mask_indices = np.array(self.mask_indices_dict[clip_name])
+                m_start_indices, m_end_indices = [], []
+                if len(mask_indices) > 0:
+                    mask = np.ones(n_original_frames, np.bool)
+                    mask[mask_indices] = 0
+                    mask = self.resample_data(mask, self.resample_rate).astype(np.bool)
+                    positions = positions[mask,:]
+                    velocities = velocities[mask,:]
+                    rotations = rotations[mask,:]
+                    angular_velocities = angular_velocities[mask,:]
+                    contacts = contacts[mask,:]
+                    if clip_annotation is not None:
+                        clip_annotation = clip_annotation[mask,:]
         return positions, velocities, rotations, angular_velocities, bone_names, bone_parents, contacts, clip_annotation
 
 
