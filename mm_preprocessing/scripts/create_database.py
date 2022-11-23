@@ -1,15 +1,12 @@
+import sys
 import os
+sys.path.append(os.sep.join([".."])+os.sep)
 import argparse
-from motion_matching.mm_database import MMDatabaseBinaryIO
+from motion_matching.mm_database import MMDatabase
+from motion_matching.mm_database_binary_io import MMDatabaseBinaryIO
 from motion_matching.preprocessing_pipeline import PreprocessingPipeline, load_ignore_list
 from motion_matching.settings import SETTINGS
 
-
-def load_ignore_list(filename):
-    ignore_list = []
-    with open(filename, "rt") as in_file:
-        ignore_list.append(in_file.readline())
-    return ignore_list
 
 
 def main(**kwargs):
@@ -17,6 +14,8 @@ def main(**kwargs):
     motion_path= kwargs["motion_path"]
     n_max_files = kwargs["n_max_files"]
     skeleton_type = kwargs["skeleton_type"]
+    file_format = kwargs["file_format"]
+    convert_coodinate_system = False
     kwargs["ignore_list"] = list()
     if kwargs["ignore_list_filename"] is not None:
         kwargs["ignore_list"] = load_ignore_list(kwargs["ignore_list_filename"])
@@ -24,19 +23,29 @@ def main(**kwargs):
     pipeline = PreprocessingPipeline(**kwargs)
     if not kwargs["evaluate"]:
         db = pipeline.create_db(motion_path, n_max_files)
-        MMDatabaseBinaryIO.write(db, out_filename)
-        #db.print_shape()
+        if "feature_descs" in kwargs:
+            db.calculate_features(kwargs["feature_descs"], convert_coodinate_system=convert_coodinate_system, normalize=False)
+            db.calculate_neighbors(normalize=True)
+        if file_format == "npy":
+            db.write_to_numpy(out_filename, False)
+        else:
+            MMDatabaseBinaryIO.write(db, out_filename)
 
-    db = MMDatabaseBinaryIO.load(out_filename)
-    db.print_shape()
+    if file_format == "npy":
+        db = MMDatabase()
+        db.load_from_numpy(out_filename)
+    else:
+        db = MMDatabaseBinaryIO.load(out_filename)
+        db.print_shape()
 
     
 
 if __name__ == "__main__":
-    DATA_DIR = r"D:\Research\Carousel\data"
-    motion_path = DATA_DIR + os.sep + r"m11\retarget\raw\combined"
-    out_path = "D:\Research\Carousel\workspace\motion_matching_demo\mm_demo\Assets\Resources"
-    out_filename = out_path + os.sep + "database_merengue_raw.bin.txt"
+    data_dir = r"D:\Research\Carousel\data"
+    out_path = r"..\data"
+    motion_path = data_dir + os.sep + r"m11\retarget\raw\combined"
+    out_filename = out_path + os.sep + "database_merengue_raw20_gl_2.npz"
+    skeleton_type = "raw"
     parser = argparse.ArgumentParser(description="Create motion matching database")
     parser.add_argument("--motion_path", type=str,  default=motion_path)
     parser.add_argument("--ignore_list_filename", type=str, default=None)
@@ -44,6 +53,7 @@ if __name__ == "__main__":
     parser.add_argument('--evaluate', "-e", default=False, dest='evaluate', action='store_true')
     parser.add_argument('--n_max_files', type=int, default=20)
     parser.add_argument('--skeleton_type', type=str, default="raw")
+    parser.add_argument('--file_format', type=str, default="npy")
     args = parser.parse_args()
     main(**vars(args))
     

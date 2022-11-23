@@ -357,22 +357,11 @@ class PreprocessingPipeline:
     def create_db(self, motion_path, n_max_files=-1):
         db = MMDatabase()
         for filename in self.get_file_list(motion_path, n_max_files):
-            for mirror in [False]:
-                print('Loading "%s" %s...' % (str(filename), "(Mirrored)" if mirror else ""))
-                positions, velocities, rotations, angular_velocities, bone_names, bone_parents, contacts, clip_annotation = self.process_motion_file(filename, mirror)
-                
-                db.append(positions, velocities, rotations, angular_velocities, contacts)
-               
-        db.set_skeleton(bone_names, bone_parents, self.bone_map)
-        return db
-
-    def create_db_with_audio(self, motion_path, audio_path, n_max_files=-1):
-        db = MMDatabase()
-        for filename in self.get_file_list(motion_path, n_max_files):
             mirror = False
             print('Loading "%s" %s...' % (str(filename), "(Mirrored)" if mirror else ""))
             positions, velocities, rotations, angular_velocities, bone_names, bone_parents, contacts, clip_annotation = self.process_motion_file(filename, mirror)
-            x = np.linspace(0, len(positions)*1/60, len(positions))
+
+            x = np.linspace(0, len(positions)*1/self.fps, len(positions))
             phase_data = np.abs(np.sin(x))
             
             db.append(positions, velocities, rotations, angular_velocities, contacts, phase_data)
@@ -380,9 +369,6 @@ class PreprocessingPipeline:
                 db.append_clip_annotation(self.annotation_matrix_builder.keys, self.annotation_matrix_builder.values, clip_annotation)
         db.set_skeleton(bone_names, bone_parents, self.bone_map)
         return db
-
-
-
 
 
 def load_ignore_list(filename):
