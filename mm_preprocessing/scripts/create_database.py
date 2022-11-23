@@ -15,7 +15,7 @@ def main(**kwargs):
     n_max_files = kwargs["n_max_files"]
     skeleton_type = kwargs["skeleton_type"]
     file_format = kwargs["file_format"]
-    convert_coodinate_system = False
+    convert_coordinate_system = kwargs["convert_cs"]
     kwargs["ignore_list"] = list()
     if kwargs["ignore_list_filename"] is not None:
         kwargs["ignore_list"] = load_ignore_list(kwargs["ignore_list_filename"])
@@ -23,8 +23,9 @@ def main(**kwargs):
     pipeline = PreprocessingPipeline(**kwargs)
     if not kwargs["evaluate"]:
         db = pipeline.create_db(motion_path, n_max_files)
+        db.concatenate_data()
         if "feature_descs" in kwargs:
-            db.calculate_features(kwargs["feature_descs"], convert_coodinate_system=convert_coodinate_system, normalize=False)
+            db.calculate_features(kwargs["feature_descs"], convert_coordinate_system=convert_coordinate_system, normalize=False)
             db.calculate_neighbors(normalize=True)
         if file_format == "npy":
             db.write_to_numpy(out_filename, False)
@@ -54,6 +55,7 @@ if __name__ == "__main__":
     parser.add_argument('--n_max_files', type=int, default=20)
     parser.add_argument('--skeleton_type', type=str, default="raw")
     parser.add_argument('--file_format', type=str, default="npy")
+    parser.add_argument('--convert_cs', type=bool, default=False)
     args = parser.parse_args()
     main(**vars(args))
     

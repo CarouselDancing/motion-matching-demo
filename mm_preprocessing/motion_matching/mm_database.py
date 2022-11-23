@@ -365,9 +365,9 @@ class MMDatabase:
                 self.bone_angular_velocities[frame_idx, bone_idx]/dt
 
 
-    def calculate_features(self, feature_descs, convert_coodinate_system=False, normalize=True):
+    def calculate_features(self, feature_descs, convert_coordinate_system=False, normalize=True):
         feature_descs = self.map_bones_to_indices(feature_descs)
-        if convert_coodinate_system:
+        if convert_coordinate_system:
             convert_ogl_to_unity_cs(self)
         self.feature_descs = feature_descs
         self.features = calculate_features(self, feature_descs)
