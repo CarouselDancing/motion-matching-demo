@@ -52,18 +52,22 @@ if __name__ == "__main__":
     motion_path = data_dir + os.sep + r"m11\retarget\raw\combined"
     out_filename = out_path + os.sep + "database_merengue_raw20_gl_2.npz"
     skeleton_type = "raw"
+    convert_coordinate_system = False
     parser = argparse.ArgumentParser(description="Create motion matching database")
     parser.add_argument("--motion_path", type=str,  default=motion_path)
     parser.add_argument("--ignore_list_filename", type=str, default=None)
     parser.add_argument("--out_filename", type=str, default=out_filename)
-    parser.add_argument('--evaluate', "-e", default=False, dest='evaluate', action='store_true')
+    parser.add_argument('--test', default=False, dest='test', action='store_true')
     parser.add_argument('--n_max_files', type=int, default=120)
     parser.add_argument('--skeleton_type', type=str, default=skeleton_type)
     parser.add_argument('--file_format', type=str, default="npy")
-    parser.add_argument('--convert_cs', type=bool, default=False)
+    parser.add_argument('--convert_cs', type=bool, default=convert_coordinate_system)
     args = parser.parse_args()
     args = vars(args)
-    create_db(**args)
+    if args["test"]:
+        load_db(**args)
+    else:
+        create_db(**args)
     
 
 
