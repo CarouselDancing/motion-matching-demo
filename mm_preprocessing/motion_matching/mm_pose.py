@@ -43,7 +43,7 @@ class MMPose:
         self.ref_position = np.array(db.bone_positions[frame_idx,0])*self.scale
         self.ref_rotation = np.array(db.bone_rotations[frame_idx,0])
         inv_root_rot = quat.normalize(quat.inv(self.ref_rotation))
-        self.lin_vel = quat.mul_vec(inv_root_rot, db.bone_velocities[frame_idx,0])*self.scale
+        self.lin_vel = quat.mul_vec(inv_root_rot, db.bone_velocities[frame_idx,0]) *self.scale
         self.ang_vel = -quat.mul_vec(inv_root_rot, db.bone_angular_velocities[frame_idx,0])
         self.update_fk_buffer()
 
@@ -78,6 +78,7 @@ class MMPose:
         else:
             self.global_positions[bone_idx] = self.positions[bone_idx]
             self.global_rotations[bone_idx] = self.rotations[bone_idx]
+
 
     def reset(self, frame_idx):
         self.frame_idx = frame_idx#self.start_frame_idx
