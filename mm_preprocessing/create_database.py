@@ -1,6 +1,6 @@
 import os
 import argparse
-from motion_matching.mm_database import MMDatabase
+from motion_matching.mm_database import MMDatabaseBinaryIO
 from motion_matching.preprocessing_pipeline import PreprocessingPipeline, load_ignore_list
 from motion_matching.settings import SETTINGS
 
@@ -24,11 +24,10 @@ def main(**kwargs):
     pipeline = PreprocessingPipeline(**kwargs)
     if not kwargs["evaluate"]:
         db = pipeline.create_db(motion_path, n_max_files)
-        db.write(out_filename)
+        MMDatabaseBinaryIO.write(db, out_filename)
         #db.print_shape()
 
-    db = MMDatabase()
-    db.load(out_filename)
+    db = MMDatabaseBinaryIO.load(out_filename)
     db.print_shape()
 
     
@@ -37,7 +36,7 @@ if __name__ == "__main__":
     DATA_DIR = r"D:\Research\Carousel\data"
     motion_path = DATA_DIR + os.sep + r"m11\retarget\raw\combined"
     out_path = "D:\Research\Carousel\workspace\motion_matching_demo\mm_demo\Assets\Resources"
-    out_filename = out_path + os.sep + "database_merengue_raw3.bin.txt"
+    out_filename = out_path + os.sep + "database_merengue_raw.bin.txt"
     parser = argparse.ArgumentParser(description="Create motion matching database")
     parser.add_argument("--motion_path", type=str,  default=motion_path)
     parser.add_argument("--ignore_list_filename", type=str, default=None)
