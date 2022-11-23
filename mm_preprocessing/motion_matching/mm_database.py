@@ -279,7 +279,7 @@ class MMDatabase:
     def get_position_trajectory(self, frame_idx, t0, t1, t2, bone_idx):
         pos_trajectory = np.zeros(6)
         frame_pos, frame_rot = self.fk(frame_idx, bone_idx)
-        inv_frame_rot = np.linalg.inv(frame_rot)
+        inv_frame_rot = quat.inv(frame_rot)
         frame_pos = self.bone_positions[frame_idx, bone_idx]
         #t0_pos, _ = self.fk(t0, bone_idx)
         #t1_pos, _ = self.fk(t1, bone_idx)
@@ -287,9 +287,9 @@ class MMDatabase:
         t0_pos = self.bone_positions[t0, bone_idx]
         t1_pos = self.bone_positions[t1, bone_idx]
         t2_pos = self.bone_positions[t2, bone_idx]
-        delta0 = np.dot(inv_frame_rot, t0_pos- frame_pos)
-        delta1 = np.dot(inv_frame_rot, t1_pos- frame_pos)
-        delta2 = np.dot(inv_frame_rot, t2_pos- frame_pos)
+        delta0 = quat.mul_vec(inv_frame_rot, t0_pos- frame_pos)
+        delta1 = quat.mul_vec(inv_frame_rot, t1_pos- frame_pos)
+        delta2 = quat.mul_vec(inv_frame_rot, t2_pos- frame_pos)
         pos_trajectory[0] = delta0[0]
         pos_trajectory[1] = delta0[2]
         pos_trajectory[2] = delta1[0]
@@ -311,16 +311,16 @@ class MMDatabase:
     def get_direction_trajectory(self, frame_idx, t0, t1, t2, bone_idx):
         pos_trajectory = np.zeros(6)
         frame_pos, frame_rot = self.fk(frame_idx, bone_idx)
-        inv_frame_rot = np.linalg.inv(frame_rot)
+        inv_frame_rot = quat.inv(frame_rot)
         #_, t0_rot = self.fk(t0, bone_idx)
         #_, t1_rot = self.fk(t1, bone_idx)
         #_, t2_rot = self.fk(t2, bone_idx)
-        t0_rot = self.get_bone_rotation_matrix(t0, bone_idx)
-        t1_rot = self.get_bone_rotation_matrix(t1, bone_idx)
-        t2_rot = self.get_bone_rotation_matrix(t2, bone_idx)
-        delta0 = np.dot(inv_frame_rot, np.dot(t0_rot, [0,0,1]))
-        delta1 = np.dot(inv_frame_rot, np.dot(t1_rot, [0,0,1]))
-        delta2 = np.dot(inv_frame_rot, np.dot(t2_rot, [0,0,1]))
+        t0_rot = self.bone_rotations[t0, bone_idx]
+        t1_rot = self.bone_rotations[t1, bone_idx]
+        t2_rot = self.bone_rotations[t2, bone_idx]
+        delta0 = quat.mul_vec(inv_frame_rot, quat.mul_vec(t0_rot, [0,0,1]))
+        delta1 = quat.mul_vec(inv_frame_rot, quat.mul_vec(t1_rot, [0,0,1]))
+        delta2 = quat.mul_vec(inv_frame_rot, quat.mul_vec(t2_rot, [0,0,1]))
         pos_trajectory[0] = delta0[0]
         pos_trajectory[1] = delta0[2]
         pos_trajectory[2] = delta1[0]
