@@ -1,14 +1,14 @@
 
 from pathlib import Path
 import os
-import quat
+from . import quat
 import json
 from scipy.interpolate import griddata
 import scipy.signal as signal
 import scipy.ndimage as ndimage
 import numpy as np
-from .mm_database import MMdatabase
-from utils import load_file, animation_mirror, extract_audio_features, contains_element_in_list, UHumanBodyBones
+from .mm_database import MMDatabase
+from .utils import load_file, animation_mirror, extract_audio_features, contains_element_in_list
 from scipy.signal import savgol_filter
 
 

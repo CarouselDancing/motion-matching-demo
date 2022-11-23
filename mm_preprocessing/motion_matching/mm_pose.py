@@ -1,8 +1,6 @@
 
 import numpy as np
 from . import quat
-from transformations import quaternion_matrix, quaternion_from_matrix, quaternion_from_euler
-
 
 class MMPose:
     def __init__(self, parents, scale=1, use_velocity=True, offset=None)-> None:
