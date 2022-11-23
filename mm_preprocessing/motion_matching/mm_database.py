@@ -89,49 +89,6 @@ class MMDatabase:
             #print(self.phase_data.shape)
             self.phase_data = np.concatenate(self.phase_data, axis=0).astype(np.float32)
 
-
-    def write(self, filename, concatenate=True):
-                
-        if concatenate: self.concatenate_data()
-
-        """ Write Database """
-        print("Writing Database...")
-
-        with open(filename, 'wb') as f:
-
-            nframes = self.bone_positions.shape[0]
-            nbones = self.bone_positions.shape[1]
-            nranges = self.range_starts.shape[0]
-            ncontacts = self.contact_states.shape[1]
-
-            f.write(struct.pack('II', nframes, nbones) + self.bone_positions.ravel().tobytes())
-            f.write(struct.pack('II', nframes, nbones) + self.bone_velocities.ravel().tobytes())
-            f.write(struct.pack('II', nframes, nbones) + self.bone_rotations.ravel().tobytes())
-            f.write(struct.pack('II', nframes, nbones) + self.bone_angular_velocities.ravel().tobytes())
-            f.write(struct.pack('I', nbones) + self.bone_parents.ravel().tobytes())
-            
-            f.write(struct.pack('I', nranges) + self.range_starts.ravel().tobytes())
-            f.write(struct.pack('I', nranges) + self.range_stops.ravel().tobytes())
-            
-            f.write(struct.pack('II', nframes, ncontacts) + self.contact_states.ravel().tobytes())
-
-            self.save_string_list(self.bone_names, f)
-            f.write(struct.pack('I', nbones) + self.bone_map.ravel().tobytes())
-
-            print("save bone map",len(self.bone_map), self.bone_map.dtype)
-            if len(self.phase_data) > 0:
-                #self.phase_data = np.concatenate(self.phase_data, axis=0).astype(np.float32)
-                n_phase_dims = 1
-                #if len(self.phase_data.shape) >1:
-                #    n_phase_dims = self.phase_data.shape[1]
-                f.write(struct.pack('II', nframes, n_phase_dims) + self.phase_data.ravel().tobytes())
-            
-            if self.annotation_matrix is not None:
-                self.save_string_list(self.annotation_keys, f)
-                self.save_string_list(self.annotation_values, f)
-                n_annotations = self.annotation_matrix.shape[1]
-                f.write(struct.pack('II', nframes, n_annotations) + self.annotation_matrix.ravel().tobytes())
-
     def write_to_numpy(self, filename, concatenate=True):
         
         if concatenate: self.concatenate_data()
@@ -242,74 +199,6 @@ class MMDatabase:
         concat_str =  "".join([chr(c) for c in int_list])
         return concat_str.split(",")
 
-    def concat_str_list(self, string_list):
-        concat_str = ""
-        for key in string_list: 
-            concat_str += key +","
-        concat_str = concat_str[:-1]
-        return concat_str
-
-    def save_string_list(self, string_list, outfile):
-        concat_str = self.concat_str_list(string_list)
-        outfile.write(struct.pack('I', len(concat_str))+str.encode(concat_str, 'utf-8'))
-
-            
-    def load(self, filename, load_phase=False, load_annotation=False):
-        with open(filename, 'rb') as f:
-            
-
-            nframes, nbones = struct.unpack('II', f.read(8))
-            self.bone_positions = np.frombuffer(f.read(nframes*nbones*3*4), dtype=np.float32, count=nframes*nbones*3).reshape([nframes, nbones, 3])
-            print("loaded", nframes, nbones)
-            
-            nframes, nbones = struct.unpack('II', f.read(8))
-            self.bone_velocities = np.frombuffer(f.read(nframes*nbones*3*4), dtype=np.float32, count=nframes*nbones*3).reshape([nframes, nbones, 3])
-            
-            nframes, nbones = struct.unpack('II', f.read(8))
-            self.bone_rotations = np.frombuffer(f.read(nframes*nbones*4*4), dtype=np.float32, count=nframes*nbones*4).reshape([nframes, nbones, 4])
-            
-            nframes, nbones = struct.unpack('II', f.read(8))
-            self.bone_angular_velocities = np.frombuffer(f.read(nframes*nbones*3*4), dtype=np.float32, count=nframes*nbones*3).reshape([nframes, nbones, 3])
-            
-            print("loaded", nframes, nbones)
-            nbones = struct.unpack('I', f.read(4))[0]
-            self.bone_parents = np.frombuffer(f.read(nbones*4), dtype=np.int32, count=nbones).reshape([nbones])
-            
-            nranges = struct.unpack('I', f.read(4))[0]
-            self.range_starts = np.frombuffer(f.read(nranges*4), dtype=np.int32, count=nranges).reshape([nranges])
-            
-            nranges = struct.unpack('I', f.read(4))[0]
-            self.range_stops = np.frombuffer(f.read(nranges*4), dtype=np.int32, count=nranges).reshape([nranges])
-            
-            nframes, ncontacts = struct.unpack('II', f.read(8))
-            self.contact_states = np.frombuffer(f.read(nframes*ncontacts), dtype=np.int8, count=nframes*ncontacts).reshape([nframes, ncontacts])
-
-            self.bone_names = self.load_string_list(f)
-            
-            nbones = struct.unpack('I', f.read(4))[0]
-            self.bone_map = np.frombuffer(f.read(nbones*4), dtype=np.int32, count=nbones).reshape([nbones])
-
-            if load_phase:
-                nframes, n_phase_dims = struct.unpack('II', f.read(8))
-                self.phase_data = np.frombuffer(f.read(nframes*n_phase_dims*4), dtype=np.float32, count=nframes*n_phase_dims).reshape([nframes, n_phase_dims])
-                if load_annotation:
-                    self.annotation_keys = self.load_string_list(f)
-                    self.annotation_values = self.load_string_list(f)
-                    nframes, n_annotations = struct.unpack('II', f.read(8))
-                    self.annotation_matrix = np.frombuffer(f.read(nframes*n_annotations*4), dtype=np.int32, count=nframes*n_annotations).reshape([nframes, n_annotations])
-                    print(self.annotation_keys)
-                    print(self.annotation_values)
-        print("loaded", nframes, self.bone_names, len(self.bone_names))
-
-    def split_str(self, concat_bytes):
-        print(concat_bytes)
-        concat_str = str(concat_bytes,"utf-8")
-        return concat_str.split(",")
-    
-    def load_string_list(self, infile):
-        str_len = struct.unpack('I',infile.read(4))[0]
-        concat_str = self.split_str(infile.read(str_len))# str(infile.read(str_len),"utf-8")
-        return concat_str.split(",")
             
     def print_shape(self):
         print("bone_positions",self.bone_positions.shape)
@@ -502,5 +391,4 @@ class MMDatabase:
             if cost < best_cost:
                 next_frame_idx = ni
                 best_cost = cost
-        return next_frame_idx
-    
+        return next_frame_idx 
