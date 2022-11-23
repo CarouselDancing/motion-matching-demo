@@ -6,6 +6,7 @@ from transformations import quaternion_matrix, quaternion_inverse
 from .mm_features import MMFeature, MMFeatureType, calculate_features, get_feature_weigth_vector, calculate_feature_mean_and_scale
 from .utils import UHumanBodyBones
 
+
 def convert_ogl_to_unity_cs(db):
     db.bone_positions[:, : ,0 ] *= -1
     db.bone_rotations[:, : ,0] *= -1
@@ -392,3 +393,26 @@ class MMDatabase:
                 next_frame_idx = ni
                 best_cost = cost
         return next_frame_idx 
+        
+    def get_relative_bone_velocities_frame(self, frame_idx):
+        n_bones = len(self.bone_names)
+        velocities = np.zeros((n_bones, 3))
+        inv_root_m = np.linalg.inv(self.get_bone_rotation_matrix(frame_idx, 0))
+        for bone_idx in range(n_bones):
+            p, lv, q, av = self.fk_velocity(frame_idx, bone_idx)
+            velocities[bone_idx] = np.dot(inv_root_m, lv)
+        return velocities 
+    
+    def get_relative_bone_velocity(self, frame_idx, bone_idx):
+        inv_root_m = np.linalg.inv(self.get_bone_rotation_matrix(frame_idx, 0))
+        p, lv, q, av = self.fk_velocity(frame_idx, bone_idx)
+        return np.dot(inv_root_m, lv)
+
+    
+    def get_bone_velocities_frame(self, frame_idx):
+        n_bones = len(self.bone_names)
+        velocities = np.zeros((n_bones, 3))
+        for bone_idx in range(n_bones):
+            p, lv, q, av = self.fk_velocity(frame_idx, bone_idx)
+            velocities[bone_idx] = lv
+        return velocities
