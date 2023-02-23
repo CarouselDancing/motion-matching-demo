@@ -1,0 +1,1 @@
+Use the download_data.ps1 script to download the binary motion matching files with a txt ending into this directory. The files are referenced by name by the MotionMatching component and loaded at runtime.
