@@ -4,7 +4,9 @@ The C# code is a port of the runtime implementation by Daniel Holden:  https://g
 
 The Python preprocessing code is a copy with small modifications.
 
-The scene Assets/MotionMatching/Demo/Scenes/main.unity contains a test of a locomotion controller.
+Locomotion controller test scene: Assets/MotionMatching/Demo/Scenes/main.unity
+
+Dance controller test scene: Assets/MotionMatching/Demo/Scenes/numpy_merengue.unity
 
 Before running the code you need to download the data using the powershell script /mm_demo/Assets/Resources/download_data.ps1
 
